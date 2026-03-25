@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CuboMente</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f7f7f5;
+    --surface: #ffffff;
+    --border: #e8e8e3;
+    --text: #1a1a1a;
+    --text-muted: #888;
+    --accent: #4f8ef7;
+    --accent-dark: #2e6fe0;
+    --success: #3ec97a;
+    --danger: #f75b5b;
+    --warning: #f7a825;
+    --white-tile: #f0ede6;
+    --blue-tile: #4f8ef7;
+    --radius: 16px;
+    --tile-size: 64px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Nunito', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px 40px;
+  }
+
+  /* ── Header ── */
+  header {
+    width: 100%;
+    max-width: 480px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .logo {
+    font-size: 22px;
+    font-weight: 900;
+    letter-spacing: -0.5px;
+  }
+  .logo span { color: var(--accent); }
+
+  .stats {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+  .stat-pill {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 999px;
+    padding: 4px 14px;
+    font-size: 14px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .stat-pill .icon { font-size: 16px; }
+
+  /* ── Progress bar ── */
+  .progress-wrap {
+    width: 100%;
+    max-width: 480px;
+    background: var(--border);
+    border-radius: 999px;
+    height: 10px;
+    margin-bottom: 24px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), #7ab3ff);
+    border-radius: 999px;
+    transition: width 0.5s cubic-bezier(.4,0,.2,1);
+  }
+
+  /* ── Card ── */
+  .card {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    width: 100%;
+    max-width: 480px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.05);
+  }
+
+  .level-label {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
+
+  .instruction {
+    font-size: 18px;
+    font-weight: 800;
+    margin-bottom: 20px;
+    line-height: 1.3;
+  }
+
+  /* ── Grid ── */
+  .grid-label {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+
+  .grids-row {
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-bottom: 20px;
+  }
+
+  .grid-section { text-align: center; }
+
+  .tile-grid {
+    display: grid;
+    gap: 6px;
+    margin: 0 auto;
+  }
+
+  .tile {
+    width: var(--tile-size);
+    height: var(--tile-size);
+    border-radius: 12px;
+    border: none;
+    cursor: default;
+    transition: transform 0.1s, box-shadow 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Target (reference) tiles */
+  .tile.white {
+    background: var(--white-tile);
+    box-shadow: inset 0 -3px 0 rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.06);
+  }
+  .tile.blue {
+    background: var(--blue-tile);
+    box-shadow: inset 0 -3px 0 rgba(0,0,0,0.15), 0 2px 8px rgba(79,142,247,0.3);
+  }
+  /* Diagonal: white + blue triangle */
+  .tile.diag-wb {
+    background: var(--white-tile);
+    box-shadow: inset 0 -3px 0 rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.06);
+  }
+  .tile.diag-wb::after {
+    content: '';
+    position: absolute;
+    top: 0; right: 0;
+    width: 0; height: 0;
+    border-style: solid;
+    border-width: 0 var(--tile-size) var(--tile-size) 0;
+    border-color: transparent var(--blue-tile) transparent transparent;
+  }
+  .tile.diag-bw {
+    background: var(--blue-tile);
+    box-shadow: inset 0 -3px 0 rgba(0,0,0,0.15), 0 2px 8px rgba(79,142,247,0.3);
+  }
+  .tile.diag-bw::after {
+    content: '';
+    position: absolute;
+    top: 0; right: 0;
+    width: 0; height: 0;
+    border-style: solid;
+    border-width: 0 var(--tile-size) var(--tile-size) 0;
+    border-color: transparent var(--white-tile) transparent transparent;
+  }
+
+  /* Player tiles — clickable */
+  .tile.player-tile {
+    cursor: pointer;
+    border: 2.5px solid transparent;
+  }
+  .tile.player-tile:active { transform: scale(0.93); }
+  .tile.player-tile:hover { transform: scale(1.05); box-shadow: 0 6px 16px rgba(79,142,247,0.25); }
+
+  /* States */
+  .tile.correct-flash {
+    animation: correctFlash 0.4s ease;
+  }
+  @keyframes correctFlash {
+    0%   { transform: scale(1); }
+    40%  { transform: scale(1.12); }
+    100% { transform: scale(1); }
+  }
+
+  .tile.wrong-flash {
+    animation: wrongFlash 0.4s ease;
+  }
+  @keyframes wrongFlash {
+    0%,100% { transform: translateX(0); }
+    20%     { transform: translateX(-5px); }
+    60%     { transform: translateX(5px); }
+  }
+
+  /* ── Divider ── */
+  .divider {
+    width: 2px;
+    height: 60px;
+    background: var(--border);
+    border-radius: 2px;
+    align-self: center;
+  }
+
+  /* ── Timer ── */
+  .timer-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+  .timer-bar-wrap {
+    flex: 1;
+    background: var(--border);
+    border-radius: 999px;
+    height: 8px;
+    overflow: hidden;
+  }
+  .timer-bar {
+    height: 100%;
+    border-radius: 999px;
+    background: var(--success);
+    transition: width 0.2s linear, background 0.3s;
+  }
+  .timer-bar.warn { background: var(--warning); }
+  .timer-bar.danger { background: var(--danger); }
+  .timer-text {
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--text-muted);
+    min-width: 32px;
+    text-align: right;
+  }
+
+  /* ── Buttons ── */
+  .btn {
+    display: block;
+    width: 100%;
+    padding: 16px;
+    border-radius: var(--radius);
+    border: none;
+    font-family: 'Nunito', sans-serif;
+    font-size: 17px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.15s;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary {
+    background: var(--accent);
+    color: white;
+    box-shadow: 0 4px 0 var(--accent-dark);
+  }
+  .btn-primary:hover { box-shadow: 0 6px 0 var(--accent-dark); transform: translateY(-1px); }
+  .btn-primary:active { box-shadow: 0 1px 0 var(--accent-dark); transform: translateY(3px); }
+  .btn-success {
+    background: var(--success);
+    color: white;
+    box-shadow: 0 4px 0 #27a35e;
+  }
+
+  /* ── Feedback badge ── */
+  .feedback {
+    text-align: center;
+    padding: 12px;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .feedback.show { opacity: 1; }
+  .feedback.ok { background: #e7f9ef; color: #1e7c4a; }
+  .feedback.fail { background: #ffeaea; color: #c0392b; }
+
+  /* ── Screens ── */
+  .screen { display: none; }
+  .screen.active { display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 480px; }
+
+  /* Start / End */
+  .big-emoji { font-size: 56px; margin-bottom: 12px; }
+  .big-title { font-size: 28px; font-weight: 900; margin-bottom: 8px; text-align: center; }
+  .subtitle { font-size: 16px; color: var(--text-muted); font-weight: 600; text-align: center; margin-bottom: 24px; line-height: 1.5; }
+
+  .feature-list {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 28px;
+  }
+  .feature-item {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px;
+    font-weight: 700;
+  }
+  .feature-item .ficon { font-size: 22px; }
+
+  .result-score {
+    font-size: 64px;
+    font-weight: 900;
+    color: var(--accent);
+    margin: 8px 0;
+  }
+
+  .result-row {
+    display: flex;
+    gap: 12px;
+    width: 100%;
+    margin-bottom: 20px;
+  }
+  .result-card {
+    flex: 1;
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    text-align: center;
+  }
+  .result-card .rc-val {
+    font-size: 24px;
+    font-weight: 900;
+    color: var(--accent);
+  }
+  .result-card .rc-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 700;
+    margin-top: 2px;
+  }
+
+  /* Corrections overlay */
+  .correction-row {
+    width: 100%;
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 20px;
+  }
+  .correction-title { font-size: 14px; font-weight: 800; margin-bottom: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+  .correction-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+  .correction-item:last-child { margin-bottom: 0; }
+  .mini-grid {
+    display: grid;
+    gap: 3px;
+  }
+  .mini-tile {
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+  }
+  .mini-tile.white { background: var(--white-tile); }
+  .mini-tile.blue  { background: var(--blue-tile); }
+  .mini-tile.diag-wb { background: var(--white-tile); }
+  .mini-tile.diag-wb::after {
+    content: '';
+    position: absolute;
+    top: 0; right: 0;
+    width: 0; height: 0;
+    border-style: solid;
+  }
+  .mini-tile.diag-bw { background: var(--blue-tile); }
+  .mini-tile.diag-bw::after {
+    content: '';
+    position: absolute;
+    top: 0; right: 0;
+    width: 0; height: 0;
+    border-style: solid;
+  }
+  .correction-arrow { font-size: 18px; color: var(--text-muted); }
+  .correction-badge {
+    font-size: 12px;
+    font-weight: 800;
+    padding: 3px 10px;
+    border-radius: 999px;
+  }
+  .badge-ok   { background: #e7f9ef; color: #1e7c4a; }
+  .badge-fail { background: #ffeaea; color: #c0392b; }
+
+  @media (max-width: 400px) {
+    :root { --tile-size: 54px; }
+    .divider { display: none; }
+    .grids-row { gap: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ════════════════ START SCREEN ════════════════ -->
+<div class="screen active" id="screen-start">
+  <div class="big-emoji">🧩</div>
+  <div class="big-title">Cubo<span style="color:var(--accent)">Mente</span></div>
+  <p class="subtitle">Olhe o padrão e reproduza-o<br>nos cubos interativos.</p>
+  <div class="feature-list">
+    <div class="feature-item"><span class="ficon">🎯</span> 8 níveis de dificuldade crescente</div>
+    <div class="feature-item"><span class="ficon">⏱️</span> Tempo limite por nível</div>
+    <div class="feature-item"><span class="ficon">🧠</span> Treina raciocínio visuoespacial</div>
+  </div>
+  <button class="btn btn-primary" onclick="startGame()">Começar →</button>
+</div>
+
+<!-- ════════════════ GAME SCREEN ════════════════ -->
+<div class="screen" id="screen-game">
+  <header>
+    <div class="logo">Cubo<span>Mente</span></div>
+    <div class="stats">
+      <div class="stat-pill"><span class="icon">⭐</span><span id="score-display">0</span></div>
+      <div class="stat-pill"><span class="icon">❤️</span><span id="lives-display">3</span></div>
+    </div>
+  </header>
+
+  <div class="progress-wrap">
+    <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+  </div>
+
+  <div class="card">
+    <div class="level-label" id="level-label">Nível 1</div>
+    <div class="instruction" id="instruction">Reproduza o padrão abaixo:</div>
+
+    <div class="timer-row">
+      <div class="timer-bar-wrap">
+        <div class="timer-bar" id="timer-bar" style="width:100%"></div>
+      </div>
+      <div class="timer-text" id="timer-text">15s</div>
+    </div>
+
+    <div class="feedback" id="feedback"></div>
+
+    <div class="grids-row">
+      <div class="grid-section">
+        <div class="grid-label">Modelo</div>
+        <div class="tile-grid" id="target-grid"></div>
+      </div>
+      <div class="divider"></div>
+      <div class="grid-section">
+        <div class="grid-label">Sua resposta</div>
+        <div class="tile-grid" id="player-grid"></div>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" id="check-btn" onclick="checkAnswer()">Confirmar ✓</button>
+  </div>
+</div>
+
+<!-- ════════════════ END SCREEN ════════════════ -->
+<div class="screen" id="screen-end">
+  <div class="big-emoji" id="end-emoji">🏆</div>
+  <div class="big-title" id="end-title">Mandou bem!</div>
+  <p class="subtitle" id="end-subtitle">Sua pontuação final:</p>
+  <div class="result-score" id="end-score">0</div>
+
+  <div class="result-row">
+    <div class="result-card">
+      <div class="rc-val" id="end-correct">0</div>
+      <div class="rc-label">✅ Corretos</div>
+    </div>
+    <div class="result-card">
+      <div class="rc-val" id="end-wrong">0</div>
+      <div class="rc-label">❌ Errados</div>
+    </div>
+    <div class="result-card">
+      <div class="rc-val" id="end-time">0s</div>
+      <div class="rc-label">⚡ Tempo médio</div>
+    </div>
+  </div>
+
+  <div class="correction-row" id="correction-row">
+    <div class="correction-title">Revisão das tentativas</div>
+    <div id="correction-list"></div>
+  </div>
+
+  <button class="btn btn-primary" onclick="restartGame()">Jogar de novo 🔄</button>
+</div>
+
+<script>
+// ─── Tile types ───────────────────────────────────────────────────
+const T = { W: 'white', B: 'blue', WB: 'diag-wb', BW: 'diag-bw' };
+const CYCLE = [T.W, T.WB, T.B, T.BW];
+
+// ─── Procedural level generator ───────────────────────────────────
+// Difficulty tiers define size, allowed tile types, and time budget.
+// Each call to generateLevels() produces a fresh randomized set.
+const TIER_DEFS = [
+  { size: 2, time: 15, pool: [T.W, T.B],               count: 2 },
+  { size: 2, time: 18, pool: [T.W, T.B, T.WB, T.BW],   count: 2 },
+  { size: 3, time: 25, pool: [T.W, T.B],               count: 2 },
+  { size: 3, time: 30, pool: [T.W, T.B, T.WB, T.BW],   count: 2 },
+];
+
+function pickRandom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+function generatePattern(size, pool) {
+  const total = size * size;
+  let pattern;
+  // Keep regenerating until the pattern is non-trivial
+  // (not all-same and has at least 2 distinct tile types)
+  do {
+    pattern = Array.from({ length: total }, () => pickRandom(pool));
+  } while (new Set(pattern).size < 2);
+  return pattern;
+}
+
+function generateLevels() {
+  const levels = [];
+  for (const tier of TIER_DEFS) {
+    for (let i = 0; i < tier.count; i++) {
+      levels.push({
+        size: tier.size,
+        time: tier.time,
+        pattern: generatePattern(tier.size, tier.pool),
+      });
+    }
+  }
+  return levels;
+}
+
+let LEVELS = generateLevels();
+
+// ─── State ────────────────────────────────────────────────────────
+let state = {
+  level: 0,
+  score: 0,
+  lives: 3,
+  playerTiles: [],
+  timerInterval: null,
+  timeLeft: 0,
+  totalTime: 0,
+  timeTaken: [],
+  history: [],  // {pattern, player, correct}
+  startTs: 0,
+  totalCorrect: 0,
+  totalWrong: 0,
+};
+
+// ─── Helpers ──────────────────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+}
+
+function setFeedback(msg, type) {
+  const el = document.getElementById('feedback');
+  el.textContent = msg;
+  el.className = 'feedback show ' + type;
+  setTimeout(() => { el.classList.remove('show'); }, 1200);
+}
+
+// ─── Timer ────────────────────────────────────────────────────────
+function startTimer(seconds) {
+  clearInterval(state.timerInterval);
+  state.timeLeft = seconds;
+  state.totalTime = seconds;
+  state.startTs = Date.now();
+  updateTimerUI();
+
+  state.timerInterval = setInterval(() => {
+    state.timeLeft -= 0.2;
+    if (state.timeLeft <= 0) {
+      state.timeLeft = 0;
+      updateTimerUI();
+      clearInterval(state.timerInterval);
+      timeOut();
+    } else {
+      updateTimerUI();
+    }
+  }, 200);
+}
+
+function updateTimerUI() {
+  const pct = (state.timeLeft / state.totalTime) * 100;
+  const bar = document.getElementById('timer-bar');
+  document.getElementById('timer-text').textContent = Math.ceil(state.timeLeft) + 's';
+  bar.style.width = pct + '%';
+  bar.className = 'timer-bar' + (pct < 25 ? ' danger' : pct < 50 ? ' warn' : '');
+}
+
+function timeOut() {
+  // record as wrong
+  const lvl = LEVELS[state.level];
+  state.history.push({ pattern: [...lvl.pattern], player: [...state.playerTiles], correct: false });
+  state.timeTaken.push(lvl.time);
+  state.lives--;
+  state.totalWrong++;
+  document.getElementById('lives-display').textContent = state.lives;
+  setFeedback('⏰ Tempo esgotado!', 'fail');
+
+  if (state.lives <= 0) {
+    setTimeout(endGame, 900);
+  } else {
+    setTimeout(nextLevel, 900);
+  }
+}
+
+// ─── Build grids ──────────────────────────────────────────────────
+function buildTargetGrid(size, pattern) {
+  const grid = document.getElementById('target-grid');
+  grid.style.gridTemplateColumns = `repeat(${size}, var(--tile-size))`;
+  grid.innerHTML = '';
+  pattern.forEach(type => {
+    const t = document.createElement('div');
+    t.className = 'tile ' + type;
+    grid.appendChild(t);
+  });
+}
+
+function buildPlayerGrid(size) {
+  const grid = document.getElementById('player-grid');
+  grid.style.gridTemplateColumns = `repeat(${size}, var(--tile-size))`;
+  grid.innerHTML = '';
+  state.playerTiles = Array(size * size).fill(T.W);
+
+  for (let i = 0; i < size * size; i++) {
+    const t = document.createElement('div');
+    t.className = 'tile player-tile ' + T.W;
+    t.dataset.index = i;
+    t.addEventListener('click', () => cycleTile(i));
+    grid.appendChild(t);
+  }
+}
+
+function cycleTile(idx) {
+  const cur = state.playerTiles[idx];
+  const next = CYCLE[(CYCLE.indexOf(cur) + 1) % CYCLE.length];
+  state.playerTiles[idx] = next;
+  const tiles = document.querySelectorAll('#player-grid .player-tile');
+  tiles[idx].className = 'tile player-tile ' + next;
+}
+
+// ─── Check answer ─────────────────────────────────────────────────
+function checkAnswer() {
+  clearInterval(state.timerInterval);
+  const lvl = LEVELS[state.level];
+  const elapsed = Math.round((Date.now() - state.startTs) / 1000);
+  state.timeTaken.push(elapsed);
+
+  const correct = lvl.pattern.every((t, i) => t === state.playerTiles[i]);
+  state.history.push({ pattern: [...lvl.pattern], player: [...state.playerTiles], correct });
+
+  if (correct) {
+    const timeBonus = Math.max(0, Math.round((state.timeLeft / lvl.time) * 50));
+    const points = 100 + timeBonus;
+    state.score += points;
+    state.totalCorrect++;
+    document.getElementById('score-display').textContent = state.score;
+    setFeedback(`✅ Correto! +${points} pts`, 'ok');
+
+    // flash correct
+    document.querySelectorAll('#player-grid .player-tile').forEach(t => {
+      t.classList.add('correct-flash');
+    });
+    setTimeout(() => {
+      if (state.level + 1 >= LEVELS.length) endGame();
+      else nextLevel();
+    }, 900);
+  } else {
+    state.lives--;
+    state.totalWrong++;
+    document.getElementById('lives-display').textContent = state.lives;
+    setFeedback('❌ Não está certo. Tente de novo!', 'fail');
+
+    document.querySelectorAll('#player-grid .player-tile').forEach(t => {
+      t.classList.add('wrong-flash');
+      setTimeout(() => t.classList.remove('wrong-flash'), 400);
+    });
+
+    if (state.lives <= 0) {
+      setTimeout(endGame, 900);
+    } else {
+      // retry same level — reset player grid only
+      setTimeout(() => {
+        startTimer(lvl.time);
+        buildPlayerGrid(lvl.size);
+      }, 600);
+    }
+  }
+}
+
+// ─── Level flow ───────────────────────────────────────────────────
+function loadLevel(idx) {
+  const lvl = LEVELS[idx];
+  document.getElementById('level-label').textContent = `Nível ${idx + 1} de ${LEVELS.length}`;
+  document.getElementById('progress-fill').style.width = ((idx / LEVELS.length) * 100) + '%';
+  buildTargetGrid(lvl.size, lvl.pattern);
+  buildPlayerGrid(lvl.size);
+  startTimer(lvl.time);
+}
+
+function nextLevel() {
+  state.level++;
+  if (state.level >= LEVELS.length) { endGame(); return; }
+  loadLevel(state.level);
+}
+
+// ─── Start / End ──────────────────────────────────────────────────
+function startGame() {
+  LEVELS = generateLevels();
+  state = { level: 0, score: 0, lives: 3, playerTiles: [], timerInterval: null,
+    timeLeft: 0, totalTime: 0, timeTaken: [], history: [], startTs: 0,
+    totalCorrect: 0, totalWrong: 0 };
+  document.getElementById('score-display').textContent = '0';
+  document.getElementById('lives-display').textContent = '3';
+  showScreen('game');
+  loadLevel(0);
+}
+
+function restartGame() {
+  showScreen('start');
+}
+
+function endGame() {
+  clearInterval(state.timerInterval);
+  showScreen('end');
+
+  document.getElementById('end-score').textContent = state.score;
+  document.getElementById('end-correct').textContent = state.totalCorrect;
+  document.getElementById('end-wrong').textContent = state.totalWrong;
+
+  const avg = state.timeTaken.length
+    ? Math.round(state.timeTaken.reduce((a, b) => a + b, 0) / state.timeTaken.length)
+    : 0;
+  document.getElementById('end-time').textContent = avg + 's';
+
+  const allCorrect = state.totalWrong === 0;
+  document.getElementById('end-emoji').textContent = allCorrect ? '🏆' : state.totalCorrect > state.totalWrong ? '🎉' : '💪';
+  document.getElementById('end-title').textContent = allCorrect ? 'Perfeito!' : state.totalCorrect >= 5 ? 'Muito bem!' : 'Continue treinando!';
+
+  // progress bar full
+  document.getElementById('progress-fill').style.width = '100%';
+
+  // Correction list
+  buildCorrectionList();
+}
+
+// ─── Mini grid builder ────────────────────────────────────────────
+function buildMiniGrid(pattern, size, tileSize) {
+  const g = document.createElement('div');
+  g.className = 'mini-grid';
+  g.style.gridTemplateColumns = `repeat(${size}, ${tileSize}px)`;
+  g.style.gap = '3px';
+  pattern.forEach(type => {
+    const t = document.createElement('div');
+    t.className = 'mini-tile ' + type;
+    t.style.width = tileSize + 'px';
+    t.style.height = tileSize + 'px';
+    // diagonal border trick for mini tiles
+    if (type === 'diag-wb') {
+      t.style.cssText += `border-width:0 ${tileSize}px ${tileSize}px 0;`;
+      t.style.setProperty('--mini-ts', tileSize + 'px');
+    }
+    if (type === 'diag-bw') {
+      t.style.cssText += `border-width:0 ${tileSize}px ${tileSize}px 0;`;
+    }
+    // Apply ::after via inline style trick
+    if (type === 'diag-wb' || type === 'diag-bw') {
+      t.style.position = 'relative';
+      t.style.overflow = 'hidden';
+      const pseudo = document.createElement('div');
+      pseudo.style.cssText = `
+        position:absolute; top:0; right:0;
+        width:0; height:0;
+        border-style:solid;
+        border-width: 0 ${tileSize}px ${tileSize}px 0;
+        border-color: transparent ${type==='diag-wb'?'var(--blue-tile)':'var(--white-tile)'} transparent transparent;
+      `;
+      t.appendChild(pseudo);
+      t.style.background = type === 'diag-wb' ? 'var(--white-tile)' : 'var(--blue-tile)';
+    }
+    g.appendChild(t);
+  });
+  return g;
+}
+
+function buildCorrectionList() {
+  const list = document.getElementById('correction-list');
+  list.innerHTML = '';
+  const lvlSizes = LEVELS.map(l => l.size);
+
+  state.history.forEach((h, i) => {
+    const lvlIdx = Math.min(i, LEVELS.length - 1);
+    const sz = lvlSizes[lvlIdx];
+    const ts = sz === 2 ? 22 : 16;
+
+    const row = document.createElement('div');
+    row.className = 'correction-item';
+
+    const targetMini = buildMiniGrid(h.pattern, sz, ts);
+    const arrow = document.createElement('span');
+    arrow.className = 'correction-arrow';
+    arrow.textContent = '→';
+    const playerMini = buildMiniGrid(h.player, sz, ts);
+    const badge = document.createElement('span');
+    badge.className = 'correction-badge ' + (h.correct ? 'badge-ok' : 'badge-fail');
+    badge.textContent = h.correct ? '✅' : '❌';
+
+    row.appendChild(targetMini);
+    row.appendChild(arrow);
+    row.appendChild(playerMini);
+    row.appendChild(badge);
+    list.appendChild(row);
+  });
+}
+</script>
+</body>
+</html>
