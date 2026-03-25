@@ -188,6 +188,33 @@
     border-width: 0 var(--tile-size) var(--tile-size) 0;
     border-color: transparent var(--white-tile) transparent transparent;
   }
+  /* Alternate diagonals: \ direction (triangle at top-left) */
+  .tile.diag-wb2 {
+    background: var(--white-tile);
+    box-shadow: inset 0 -3px 0 rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.06);
+  }
+  .tile.diag-wb2::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 0; height: 0;
+    border-style: solid;
+    border-width: var(--tile-size) var(--tile-size) 0 0;
+    border-color: var(--blue-tile) transparent transparent transparent;
+  }
+  .tile.diag-bw2 {
+    background: var(--blue-tile);
+    box-shadow: inset 0 -3px 0 rgba(0,0,0,0.15), 0 2px 8px rgba(79,142,247,0.3);
+  }
+  .tile.diag-bw2::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 0; height: 0;
+    border-style: solid;
+    border-width: var(--tile-size) var(--tile-size) 0 0;
+    border-color: var(--white-tile) transparent transparent transparent;
+  }
 
   /* Player tiles — clickable */
   .tile.player-tile {
@@ -403,6 +430,22 @@
     width: 0; height: 0;
     border-style: solid;
   }
+  .mini-tile.diag-wb2 { background: var(--white-tile); }
+  .mini-tile.diag-wb2::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 0; height: 0;
+    border-style: solid;
+  }
+  .mini-tile.diag-bw2 { background: var(--blue-tile); }
+  .mini-tile.diag-bw2::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 0; height: 0;
+    border-style: solid;
+  }
   .correction-arrow { font-size: 18px; color: var(--text-muted); }
   .correction-badge {
     font-size: 12px;
@@ -510,17 +553,17 @@
 
 <script>
 // ─── Tile types ───────────────────────────────────────────────────
-const T = { W: 'white', B: 'blue', WB: 'diag-wb', BW: 'diag-bw' };
-const CYCLE = [T.W, T.WB, T.B, T.BW];
+const T = { W: 'white', B: 'blue', WB: 'diag-wb', BW: 'diag-bw', WB2: 'diag-wb2', BW2: 'diag-bw2' };
+const CYCLE = [T.W, T.WB, T.WB2, T.B, T.BW, T.BW2];
 
 // ─── Procedural level generator ───────────────────────────────────
 // Difficulty tiers define size, allowed tile types, and time budget.
 // Each call to generateLevels() produces a fresh randomized set.
 const TIER_DEFS = [
   { size: 2, time: 15, pool: [T.W, T.B],               count: 2 },
-  { size: 2, time: 18, pool: [T.W, T.B, T.WB, T.BW],   count: 2 },
-  { size: 3, time: 25, pool: [T.W, T.B],               count: 2 },
-  { size: 3, time: 30, pool: [T.W, T.B, T.WB, T.BW],   count: 2 },
+  { size: 2, time: 18, pool: [T.W, T.B, T.WB, T.BW, T.WB2, T.BW2], count: 2 },
+  { size: 3, time: 25, pool: [T.W, T.B],                             count: 2 },
+  { size: 3, time: 30, pool: [T.W, T.B, T.WB, T.BW, T.WB2, T.BW2], count: 2 },
 ];
 
 function pickRandom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
@@ -800,6 +843,20 @@ function buildMiniGrid(pattern, size, tileSize) {
       `;
       t.appendChild(pseudo);
       t.style.background = type === 'diag-wb' ? 'var(--white-tile)' : 'var(--blue-tile)';
+    }
+    if (type === 'diag-wb2' || type === 'diag-bw2') {
+      t.style.position = 'relative';
+      t.style.overflow = 'hidden';
+      const pseudo = document.createElement('div');
+      pseudo.style.cssText = `
+        position:absolute; top:0; left:0;
+        width:0; height:0;
+        border-style:solid;
+        border-width: ${tileSize}px ${tileSize}px 0 0;
+        border-color: ${type==='diag-wb2'?'var(--blue-tile)':'var(--white-tile)'} transparent transparent transparent;
+      `;
+      t.appendChild(pseudo);
+      t.style.background = type === 'diag-wb2' ? 'var(--white-tile)' : 'var(--blue-tile)';
     }
     g.appendChild(t);
   });
