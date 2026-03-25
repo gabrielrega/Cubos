@@ -421,6 +421,8 @@
     top: 0; right: 0;
     width: 0; height: 0;
     border-style: solid;
+    border-width: 0 var(--mini-ts) var(--mini-ts) 0;
+    border-color: transparent var(--blue-tile) transparent transparent;
   }
   .mini-tile.diag-bw { background: var(--blue-tile); }
   .mini-tile.diag-bw::after {
@@ -429,6 +431,8 @@
     top: 0; right: 0;
     width: 0; height: 0;
     border-style: solid;
+    border-width: 0 var(--mini-ts) var(--mini-ts) 0;
+    border-color: transparent var(--white-tile) transparent transparent;
   }
   .mini-tile.diag-wb2 { background: var(--white-tile); }
   .mini-tile.diag-wb2::after {
@@ -437,6 +441,8 @@
     top: 0; left: 0;
     width: 0; height: 0;
     border-style: solid;
+    border-width: var(--mini-ts) var(--mini-ts) 0 0;
+    border-color: var(--blue-tile) transparent transparent transparent;
   }
   .mini-tile.diag-bw2 { background: var(--blue-tile); }
   .mini-tile.diag-bw2::after {
@@ -445,6 +451,8 @@
     top: 0; left: 0;
     width: 0; height: 0;
     border-style: solid;
+    border-width: var(--mini-ts) var(--mini-ts) 0 0;
+    border-color: var(--white-tile) transparent transparent transparent;
   }
   .correction-arrow { font-size: 18px; color: var(--text-muted); }
   .correction-badge {
@@ -633,7 +641,7 @@ function startTimer(seconds) {
   updateTimerUI();
 
   state.timerInterval = setInterval(() => {
-    state.timeLeft -= 0.2;
+    state.timeLeft = Math.max(0, state.timeLeft - 0.2);
     if (state.timeLeft <= 0) {
       state.timeLeft = 0;
       updateTimerUI();
@@ -657,7 +665,7 @@ function timeOut() {
   // record as wrong
   const lvl = LEVELS[state.level];
   state.history.push({ pattern: [...lvl.pattern], player: [...state.playerTiles], correct: false });
-  state.timeTaken.push(lvl.time);
+  state.timeTaken.push(Math.round((Date.now() - state.startTs) / 1000));
   state.lives--;
   state.totalWrong++;
   document.getElementById('lives-display').textContent = state.lives;
@@ -821,43 +829,8 @@ function buildMiniGrid(pattern, size, tileSize) {
     t.className = 'mini-tile ' + type;
     t.style.width = tileSize + 'px';
     t.style.height = tileSize + 'px';
-    // diagonal border trick for mini tiles
-    if (type === 'diag-wb') {
-      t.style.cssText += `border-width:0 ${tileSize}px ${tileSize}px 0;`;
-      t.style.setProperty('--mini-ts', tileSize + 'px');
-    }
-    if (type === 'diag-bw') {
-      t.style.cssText += `border-width:0 ${tileSize}px ${tileSize}px 0;`;
-    }
-    // Apply ::after via inline style trick
-    if (type === 'diag-wb' || type === 'diag-bw') {
-      t.style.position = 'relative';
-      t.style.overflow = 'hidden';
-      const pseudo = document.createElement('div');
-      pseudo.style.cssText = `
-        position:absolute; top:0; right:0;
-        width:0; height:0;
-        border-style:solid;
-        border-width: 0 ${tileSize}px ${tileSize}px 0;
-        border-color: transparent ${type==='diag-wb'?'var(--blue-tile)':'var(--white-tile)'} transparent transparent;
-      `;
-      t.appendChild(pseudo);
-      t.style.background = type === 'diag-wb' ? 'var(--white-tile)' : 'var(--blue-tile)';
-    }
-    if (type === 'diag-wb2' || type === 'diag-bw2') {
-      t.style.position = 'relative';
-      t.style.overflow = 'hidden';
-      const pseudo = document.createElement('div');
-      pseudo.style.cssText = `
-        position:absolute; top:0; left:0;
-        width:0; height:0;
-        border-style:solid;
-        border-width: ${tileSize}px ${tileSize}px 0 0;
-        border-color: ${type==='diag-wb2'?'var(--blue-tile)':'var(--white-tile)'} transparent transparent transparent;
-      `;
-      t.appendChild(pseudo);
-      t.style.background = type === 'diag-wb2' ? 'var(--white-tile)' : 'var(--blue-tile)';
-    }
+    // Pass tile size as CSS custom property so ::after triangles scale correctly
+    t.style.setProperty('--mini-ts', tileSize + 'px');
     g.appendChild(t);
   });
   return g;
