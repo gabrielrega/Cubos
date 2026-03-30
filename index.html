@@ -565,25 +565,117 @@ const T = { W: 'white', B: 'blue', WB: 'diag-wb', BW: 'diag-bw', WB2: 'diag-wb2'
 const CYCLE = [T.W, T.WB, T.WB2, T.B, T.BW, T.BW2];
 
 // ─── Procedural level generator ───────────────────────────────────
-// Difficulty tiers define size, allowed tile types, and time budget.
-// Each call to generateLevels() produces a fresh randomized set.
+// Difficulty tiers define size, allowed tile types, and style.
 const TIER_DEFS = [
-  { size: 2, time: 15, pool: [T.W, T.B],               count: 2 },
-  { size: 2, time: 18, pool: [T.W, T.B, T.WB, T.BW, T.WB2, T.BW2], count: 2 },
-  { size: 3, time: 25, pool: [T.W, T.B],                             count: 2 },
-  { size: 3, time: 30, pool: [T.W, T.B, T.WB, T.BW, T.WB2, T.BW2], count: 2 },
+  { size: 2, time: 15, pool: [T.W, T.B], styles: ['intruder', 'stripes', 'cross'], count: 2 },
+  { size: 2, time: 18, pool: [T.W, T.B, T.WB, T.BW, T.WB2, T.BW2], styles: ['symmetric', 'x_cross', 'random'], count: 2 },
+  { size: 3, time: 25, pool: [T.W, T.B], styles: ['border', 'checkerboard', 'stripes', 'cross'], count: 2 },
+  { size: 3, time: 30, pool: [T.W, T.B, T.WB, T.BW, T.WB2, T.BW2], styles: ['symmetric', 'border', 'x_cross', 'random'], count: 2 },
 ];
 
 function pickRandom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
-function generatePattern(size, pool) {
+function generatePattern(size, pool, style) {
   const total = size * size;
-  let pattern;
-  // Keep regenerating until the pattern is non-trivial
-  // (not all-same and has at least 2 distinct tile types)
-  do {
-    pattern = Array.from({ length: total }, () => pickRandom(pool));
-  } while (new Set(pattern).size < 2);
+  let pattern = Array(total).fill(pool[0]);
+
+  switch (style) {
+    case 'intruder': {
+      const base = pickRandom(pool);
+      let intruder = pickRandom(pool);
+      while (intruder === base) intruder = pickRandom(pool);
+      pattern.fill(base);
+      pattern[Math.floor(Math.random() * total)] = intruder;
+      break;
+    }
+    case 'stripes': {
+      const isHorizontal = Math.random() > 0.5;
+      const colors = [pickRandom(pool), pickRandom(pool)];
+      for (let i = 0; i < total; i++) {
+        const line = isHorizontal ? Math.floor(i / size) : (i % size);
+        pattern[i] = colors[line % 2];
+      }
+      break;
+    }
+    case 'checkerboard': {
+      const c1 = pickRandom(pool);
+      let c2 = pickRandom(pool);
+      while (c2 === c1) c2 = pickRandom(pool);
+      for (let i = 0; i < total; i++) {
+        const row = Math.floor(i / size);
+        const col = i % size;
+        pattern[i] = (row + col) % 2 === 0 ? c1 : c2;
+      }
+      break;
+    }
+    case 'border': {
+      const borderC = pickRandom(pool);
+      let centerC = pickRandom(pool);
+      while (centerC === borderC) centerC = pickRandom(pool);
+      pattern.fill(borderC);
+      for (let r = 1; r < size - 1; r++) {
+        for (let c = 1; c < size - 1; c++) {
+          pattern[r * size + c] = centerC;
+        }
+      }
+      break;
+    }
+    case 'symmetric': {
+      const half = Math.ceil(size / 2);
+      const isVertical = Math.random() > 0.5;
+      // Generate half and mirror
+      for (let r = 0; r < size; r++) {
+        for (let c = 0; c < size; c++) {
+          const isPrimaryHalf = isVertical ? (c < half) : (r < half);
+          if (isPrimaryHalf) {
+            pattern[r * size + c] = pickRandom(pool);
+          } else {
+            const mirR = isVertical ? r : (size - 1 - r);
+            const mirC = isVertical ? (size - 1 - c) : c;
+            pattern[r * size + c] = pattern[mirR * size + mirC];
+          }
+        }
+      }
+      break;
+    }
+    case 'cross': {
+      const c1 = pickRandom(pool);
+      let c2 = pickRandom(pool);
+      while (c2 === c1) c2 = pickRandom(pool);
+      const mid = Math.floor(size / 2);
+      pattern.fill(c1);
+      for (let i = 0; i < total; i++) {
+        const r = Math.floor(i / size);
+        const c = i % size;
+        if (r === mid || c === mid) pattern[i] = c2;
+      }
+      break;
+    }
+    case 'x_cross': {
+      const c1 = pickRandom(pool);
+      let c2 = pickRandom(pool);
+      while (c2 === c1) c2 = pickRandom(pool);
+      pattern.fill(c1);
+      for (let i = 0; i < total; i++) {
+        const r = Math.floor(i / size);
+        const c = i % size;
+        if (r === c || (r + c) === (size - 1)) pattern[i] = c2;
+      }
+      break;
+    }
+    default: // random
+      do {
+        pattern = Array.from({ length: total }, () => pickRandom(pool));
+      } while (new Set(pattern).size < 2);
+  }
+  
+  // Safety check: if the style produced a single color (rare but possible), randomize one tile
+  if (new Set(pattern).size < 2) {
+    let alt = pickRandom(pool);
+    while (alt === pattern[0]) alt = pickRandom(pool);
+    pattern[Math.floor(Math.random() * total)] = alt;
+  }
+
   return pattern;
 }
 
@@ -591,10 +683,11 @@ function generateLevels() {
   const levels = [];
   for (const tier of TIER_DEFS) {
     for (let i = 0; i < tier.count; i++) {
+      const style = pickRandom(tier.styles);
       levels.push({
         size: tier.size,
         time: tier.time,
-        pattern: generatePattern(tier.size, tier.pool),
+        pattern: generatePattern(tier.size, tier.pool, style),
       });
     }
   }
