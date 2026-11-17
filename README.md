@@ -4,7 +4,7 @@ Jogo de quebra-cabeça visuoespacial em página única (HTML, CSS e JS puros, se
 
 ## Como jogar
 
-- Clique em um cubo para alternar entre os 6 estados: branco, diagonais, azul.
+- Clique (ou use Tab e Enter/Espaço) em um cubo para alternar entre os 6 estados: branco, diagonais, azul.
 - São 8 níveis de dificuldade crescente (grids 2×2 e 3×3), com tempo limite por nível.
 - Você tem 3 vidas: errar ou estourar o tempo custa uma vida.
 - Acertos valem 100 pontos mais um bônus de até 50 pela rapidez.

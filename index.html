@@ -221,6 +221,7 @@
     cursor: pointer;
     border: 2.5px solid transparent;
   }
+  .tile.player-tile:focus-visible { outline: 3px solid var(--accent-dark); outline-offset: 3px; }
   .tile.player-tile:active { transform: scale(0.93); }
   .tile.player-tile:hover { transform: scale(1.05); box-shadow: 0 6px 16px rgba(79,142,247,0.25); }
 
@@ -563,6 +564,13 @@
 // ─── Tile types ───────────────────────────────────────────────────
 const T = { W: 'white', B: 'blue', WB: 'diag-wb', BW: 'diag-bw', WB2: 'diag-wb2', BW2: 'diag-bw2' };
 const CYCLE = [T.W, T.WB, T.WB2, T.B, T.BW, T.BW2];
+const TILE_NAMES = {
+  'white': 'branco', 'blue': 'azul',
+  'diag-wb': 'branco com diagonal azul superior direita',
+  'diag-wb2': 'branco com diagonal azul superior esquerda',
+  'diag-bw': 'azul com diagonal branca superior direita',
+  'diag-bw2': 'azul com diagonal branca superior esquerda',
+};
 
 // ─── Procedural level generator ───────────────────────────────────
 // Difficulty tiers define size, allowed tile types, and style.
@@ -793,7 +801,13 @@ function buildPlayerGrid(size) {
     const t = document.createElement('div');
     t.className = 'tile player-tile ' + T.W;
     t.dataset.index = i;
+    t.tabIndex = 0;
+    t.setAttribute('role', 'button');
+    t.setAttribute('aria-label', `Cubo ${i + 1}: ${TILE_NAMES[T.W]}`);
     t.addEventListener('click', () => cycleTile(i));
+    t.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); cycleTile(i); }
+    });
     grid.appendChild(t);
   }
 }
@@ -804,6 +818,7 @@ function cycleTile(idx) {
   state.playerTiles[idx] = next;
   const tiles = document.querySelectorAll('#player-grid .player-tile');
   tiles[idx].className = 'tile player-tile ' + next;
+  tiles[idx].setAttribute('aria-label', `Cubo ${idx + 1}: ${TILE_NAMES[next]}`);
 }
 
 // ─── Check answer ─────────────────────────────────────────────────
