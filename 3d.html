@@ -38,7 +38,7 @@
     position: fixed; inset: 0;
     width: 100%; height: 100%;
     display: block;
-    touch-action: manipulation;
+    touch-action: none;
   }
   .sr-only {
     position: absolute; width: 1px; height: 1px; overflow: hidden;
@@ -88,7 +88,7 @@
 
   .hint { text-align: center; font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 10px; }
   .hint kbd { background: var(--glass); border: 1px solid var(--glass-border); border-radius: 6px; padding: 1px 6px; font-family: inherit; }
-  @media (hover: none) { .hint { display: none; } }
+  @media (hover: none) { .hint.kb { display: none; } }
 
   .btn {
     display: block; width: 100%;
@@ -137,6 +137,7 @@
   .mini-tile { border-radius: 4px; }
   .mini-tile.white { background: var(--white-tile); }
   .mini-tile.blue { background: var(--blue-tile); }
+  .mini-tile.empty { background: rgba(255,255,255,0.1); }
   .mini-tile.diag-wb  { background: linear-gradient(to bottom left,  var(--blue-tile) 50%, var(--white-tile) 50%); }
   .mini-tile.diag-bw  { background: linear-gradient(to bottom left,  var(--white-tile) 50%, var(--blue-tile) 50%); }
   .mini-tile.diag-wb2 { background: linear-gradient(to bottom right, var(--blue-tile) 50%, var(--white-tile) 50%); }
@@ -154,7 +155,7 @@
 </head>
 <body>
 
-<canvas id="scene" role="img" aria-label="Tabuleiros 3D: à esquerda o modelo, à direita a sua resposta"></canvas>
+<canvas id="scene" role="img" aria-label="Cena 3D: o modelo a reproduzir, o seu tabuleiro e a bandeja de cubos"></canvas>
 <div class="sr-only" id="sr-live" aria-live="polite"></div>
 
 <div id="fallback" hidden>
@@ -181,7 +182,8 @@
     </div>
   </div>
   <div class="hud-bottom">
-    <div class="hint"><kbd>←↑↓→</kbd> mover · <kbd>Espaço</kbd> girar cubo · <kbd>C</kbd> confirmar</div>
+    <div class="hint">Arraste os cubos da bandeja para o tabuleiro · arraste sobre um cubo para virá-lo · segure para mover</div>
+    <div class="hint kb">Teclado: <kbd>←↑↓→</kbd> casa · <kbd>Espaço</kbd> colocar · <kbd>Q E W S</kbd> virar · <kbd>⌫</kbd> devolver · <kbd>C</kbd> confirmar</div>
     <button class="btn" id="check-btn" type="button">Confirmar ✓</button>
   </div>
 </div>
@@ -192,13 +194,13 @@
   <div class="block">
     <div class="big-emoji">🧩</div>
     <h1 class="big-title">Cubo<span>Mente</span> 3D</h1>
-    <p class="subtitle">Olhe o modelo e reproduza o padrão<br>nos cubos giratórios.</p>
+    <p class="subtitle">Pegue os cubos, vire cada um até<br>a face certa e monte o padrão.</p>
   </div>
   <div class="block">
     <div class="feature-list">
+      <div class="feature"><span class="ficon">🧊</span> Cubos de verdade: 2 brancas, 2 azuis, 2 diagonais</div>
       <div class="feature"><span class="ficon">🎯</span> 8 níveis de dificuldade crescente</div>
       <div class="feature"><span class="ficon">⏱️</span> Tempo limite por nível</div>
-      <div class="feature"><span class="ficon">🧠</span> Treina raciocínio visuoespacial</div>
     </div>
     <div class="best-line" id="start-best" hidden></div>
     <button class="btn" id="start-btn" type="button">Começar →</button>
@@ -230,9 +232,10 @@
 <script type="module">
 import * as THREE from 'three';
 
-/* ════════════════ Lógica do jogo (mesma da versão 2D) ════════════════ */
+const V3 = THREE.Vector3, Quat = THREE.Quaternion;
+
+/* ════════════════ Lógica de padrões (mesma da versão 2D) ════════════════ */
 const T = { W: 'white', B: 'blue', WB: 'diag-wb', BW: 'diag-bw', WB2: 'diag-wb2', BW2: 'diag-bw2' };
-const CYCLE = [T.W, T.WB, T.WB2, T.B, T.BW, T.BW2];
 const TILE_NAMES = {
   'white': 'branco', 'blue': 'azul',
   'diag-wb': 'branco com diagonal azul superior direita',
@@ -242,10 +245,10 @@ const TILE_NAMES = {
 };
 
 const TIER_DEFS = [
-  { size: 2, time: 15, pool: [T.W, T.B], styles: ['intruder', 'stripes', 'cross'], count: 2 },
-  { size: 2, time: 18, pool: [T.W, T.B, T.WB, T.BW, T.WB2, T.BW2], styles: ['symmetric', 'x_cross', 'random'], count: 2 },
-  { size: 3, time: 25, pool: [T.W, T.B], styles: ['border', 'checkerboard', 'stripes', 'cross'], count: 2 },
-  { size: 3, time: 30, pool: [T.W, T.B, T.WB, T.BW, T.WB2, T.BW2], styles: ['symmetric', 'border', 'x_cross', 'random'], count: 2 },
+  { size: 2, time: 20, pool: [T.W, T.B], styles: ['intruder', 'stripes', 'cross'], count: 2 },
+  { size: 2, time: 25, pool: [T.W, T.B, T.WB, T.BW, T.WB2, T.BW2], styles: ['symmetric', 'x_cross', 'random'], count: 2 },
+  { size: 3, time: 40, pool: [T.W, T.B], styles: ['border', 'checkerboard', 'stripes', 'cross'], count: 2 },
+  { size: 3, time: 55, pool: [T.W, T.B, T.WB, T.BW, T.WB2, T.BW2], styles: ['symmetric', 'border', 'x_cross', 'random'], count: 2 },
 ];
 
 function pickRandom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
@@ -384,29 +387,26 @@ renderer.toneMappingExposure = 1.05;
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
 
-// Luzes
 scene.add(new THREE.HemisphereLight(0xcfdcff, 0x1a2145, 1.0));
 const sun = new THREE.DirectionalLight(0xffffff, 2.4);
-sun.position.set(4, 9, 6);
+sun.position.set(4, 10, 7);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
-sun.shadow.camera.left = -9; sun.shadow.camera.right = 9;
-sun.shadow.camera.top = 9; sun.shadow.camera.bottom = -9;
-sun.shadow.camera.near = 1; sun.shadow.camera.far = 30;
+sun.shadow.camera.left = -14; sun.shadow.camera.right = 14;
+sun.shadow.camera.top = 12; sun.shadow.camera.bottom = -12;
+sun.shadow.camera.near = 1; sun.shadow.camera.far = 40;
 sun.shadow.bias = -0.0005;
 scene.add(sun);
 const rim = new THREE.PointLight(0x4f8ef7, 60, 30);
 rim.position.set(-5, 3, -6);
 scene.add(rim);
 
-// Chão que só recebe sombra (o fundo é um gradiente CSS)
 const floor = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), new THREE.ShadowMaterial({ opacity: 0.4 }));
 floor.rotation.x = -Math.PI / 2;
 floor.position.y = -0.21;
 floor.receiveShadow = true;
 scene.add(floor);
 
-// Poeira flutuante para dar profundidade
 const dust = (() => {
   const n = 160, pos = new Float32Array(n * 3);
   for (let i = 0; i < n; i++) {
@@ -422,15 +422,20 @@ const dust = (() => {
   return p;
 })();
 
-/* ── Geometria e materiais dos cubos ── */
-const PITCH = 1.15;   // distância entre centros
-const TILE_H = 0.24;  // altura do cubo
+/* ── Materiais ── */
+const PITCH = 1.15;   // distância entre centros de casas
+const TILE_H = 0.24;  // altura dos ladrilhos planos do modelo
 const BEVEL = 0.025;
+const CUBE_Y = 0.5;   // altura do centro do cubo apoiado na placa
 
 const matWhite = new THREE.MeshPhysicalMaterial({ color: 0xf0ede6, roughness: 0.4, clearcoat: 0.5, clearcoatRoughness: 0.3 });
 const matBlue  = new THREE.MeshPhysicalMaterial({ color: 0x4f8ef7, roughness: 0.35, clearcoat: 0.6, clearcoatRoughness: 0.25 });
 const matPlate = new THREE.MeshPhysicalMaterial({ color: 0x2a3563, roughness: 0.55, clearcoat: 0.3 });
+const matCore  = new THREE.MeshStandardMaterial({ color: 0x141a3a, roughness: 0.6 });
+const matSlot  = new THREE.MeshStandardMaterial({ color: 0x1f2852, roughness: 0.9 });
+const matSlotHot = new THREE.MeshStandardMaterial({ color: 0x3d63b8, emissive: 0x2a4fa8, emissiveIntensity: 0.9, roughness: 0.6 });
 
+/* ── Ladrilhos planos (usados só no MODELO) ── */
 function prism(points) {
   const shape = new THREE.Shape();
   points.forEach(([x, y], i) => (i ? shape.lineTo(x, y) : shape.moveTo(x, y)));
@@ -440,18 +445,17 @@ function prism(points) {
     bevelThickness: BEVEL, bevelSize: BEVEL, bevelOffset: -BEVEL, bevelSegments: 2,
   });
   geo.translate(0, 0, BEVEL);
-  geo.rotateX(-Math.PI / 2); // plano XY -> XZ, extrusão vira altura (y)
+  geo.rotateX(-Math.PI / 2); // plano XY -> XZ; topo da imagem fica no lado -z (longe da câmera)
   return geo;
 }
 const h = 0.5;
 const GEO = {
   square: prism([[-h, -h], [h, -h], [h, h], [-h, h]]),
-  bl: prism([[-h, h], [-h, -h], [h, -h]]),   // triângulo inferior esquerdo
-  tr: prism([[-h, h], [h, h], [h, -h]]),     // triângulo superior direito
-  tl: prism([[-h, h], [h, h], [-h, -h]]),    // triângulo superior esquerdo
-  br: prism([[h, h], [h, -h], [-h, -h]]),    // triângulo inferior direito
+  bl: prism([[-h, h], [-h, -h], [h, -h]]),
+  tr: prism([[-h, h], [h, h], [h, -h]]),
+  tl: prism([[-h, h], [h, h], [-h, -h]]),
+  br: prism([[h, h], [h, -h], [-h, -h]]),
 };
-// [geometria, material] de cada metade de cada tipo
 const TILE_PARTS = {
   'white':    [[GEO.square, matWhite]],
   'blue':     [[GEO.square, matBlue]],
@@ -460,17 +464,135 @@ const TILE_PARTS = {
   'diag-wb2': [[GEO.br, matWhite], [GEO.tl, matBlue]],
   'diag-bw2': [[GEO.br, matBlue],  [GEO.tl, matWhite]],
 };
-
 function fillTile(group, type) {
   group.clear();
   for (const [geo, mat] of TILE_PARTS[type]) {
     const m = new THREE.Mesh(geo, mat);
-    m.castShadow = true;
-    m.receiveShadow = true;
+    m.castShadow = true; m.receiveShadow = true;
     group.add(m);
   }
 }
 
+/* ── Cubo de Kohs: 6 faces (2 brancas, 2 azuis, 2 diagonais) ── */
+const DH = 0.465, DD = 0.035, DB = 0.01;
+function decalPrism(points) {
+  const shape = new THREE.Shape();
+  points.forEach(([x, y], i) => (i ? shape.lineTo(x, y) : shape.moveTo(x, y)));
+  shape.closePath();
+  const geo = new THREE.ExtrudeGeometry(shape, {
+    depth: DD - 2 * DB, bevelEnabled: true,
+    bevelThickness: DB, bevelSize: DB, bevelOffset: -DB, bevelSegments: 1,
+  });
+  geo.translate(0, 0, DB + 0.5 - DD); // superfície externa em z = 0.5
+  return geo;
+}
+const DGEO = {
+  square: decalPrism([[-DH, -DH], [DH, -DH], [DH, DH], [-DH, DH]]),
+  bl: decalPrism([[-DH, DH], [-DH, -DH], [DH, -DH]]),
+  tr: decalPrism([[-DH, DH], [DH, DH], [DH, -DH]]),
+};
+const CORE_GEO = new THREE.BoxGeometry(0.97, 0.97, 0.97);
+const Z_AXIS = new V3(0, 0, 1);
+
+// Imagem local de cada face: X = direita, Y = cima, Z = para fora.
+// A diagonal tem o triângulo azul no canto superior direito da imagem.
+const FACE_DEFS = [
+  { n: [0, 1, 0],  kind: 'white' },
+  { n: [0, -1, 0], kind: 'blue' },
+  { n: [1, 0, 0],  kind: 'white' },
+  { n: [-1, 0, 0], kind: 'blue' },
+  { n: [0, 0, 1],  kind: 'diag' },
+  { n: [0, 0, -1], kind: 'diag' },
+].map(f => {
+  const n = new V3(...f.n);
+  return { ...f, n, q: new Quat().setFromUnitVectors(Z_AXIS, n) };
+});
+const FACE_PARTS = {
+  white: [[DGEO.square, matWhite]],
+  blue:  [[DGEO.square, matBlue]],
+  diag:  [[DGEO.bl, matWhite], [DGEO.tr, matBlue]],
+};
+
+/* Orientação: sempre em múltiplos de 90° */
+function snapDir(v, skip) {
+  const a = [v.x, v.y, v.z];
+  let bi = -1, bv = -1;
+  for (let i = 0; i < 3; i++) {
+    if (i === skip) continue;
+    if (Math.abs(a[i]) > bv) { bv = Math.abs(a[i]); bi = i; }
+  }
+  const o = [0, 0, 0];
+  o[bi] = a[bi] < 0 ? -1 : 1;
+  return { v: new V3(...o), i: bi };
+}
+function snapQuat(q) {
+  const m = new THREE.Matrix4().makeRotationFromQuaternion(q);
+  const x = new V3(), y = new V3(), z = new V3();
+  m.extractBasis(x, y, z);
+  const sx = snapDir(x, -1), sy = snapDir(y, sx.i);
+  const sz = new V3().crossVectors(sx.v, sy.v);
+  return new Quat().setFromRotationMatrix(new THREE.Matrix4().makeBasis(sx.v, sy.v, sz));
+}
+const AX_X = new V3(1, 0, 0), AX_Y = new V3(0, 1, 0), AX_Z = new V3(0, 0, 1);
+function randomQuat() {
+  const q = new Quat(), tmp = new Quat();
+  for (let i = 0; i < 4; i++) {
+    tmp.setFromAxisAngle(pickRandom([AX_X, AX_Y, AX_Z]), Math.floor(Math.random() * 4) * Math.PI / 2);
+    q.premultiply(tmp);
+  }
+  return snapQuat(q);
+}
+
+/* Que ladrilho o cubo mostra visto de cima? (câmera: direita = +X, topo = -Z) */
+function tileTypeOf(q) {
+  let face = null, best = -2;
+  for (const f of FACE_DEFS) {
+    const d = f.n.clone().applyQuaternion(q).y;
+    if (d > best) { best = d; face = f; }
+  }
+  if (face.kind === 'white') return T.W;
+  if (face.kind === 'blue') return T.B;
+  const c = new V3(1, 1, 0).applyQuaternion(face.q).applyQuaternion(q); // aponta ao triângulo azul
+  const right = c.x > 0, up = -c.z > 0;
+  if (right && up) return T.WB;
+  if (!right && up) return T.WB2;
+  if (!right && !up) return T.BW;
+  return T.BW2;
+}
+
+function createCube() {
+  const root = new THREE.Group();
+  const body = new THREE.Group();
+  root.add(body);
+  const core = new THREE.Mesh(CORE_GEO, matCore);
+  core.castShadow = true; core.receiveShadow = true;
+  body.add(core);
+  for (const f of FACE_DEFS) {
+    const g = new THREE.Group();
+    g.quaternion.copy(f.q);
+    for (const [geo, mat] of FACE_PARTS[f.kind]) {
+      const m = new THREE.Mesh(geo, mat);
+      m.castShadow = true; m.receiveShadow = true;
+      g.add(m);
+    }
+    body.add(g);
+  }
+  const cube = {
+    root, body,
+    q0: new Quat(),            // orientação "assentada"
+    turn: null,                // giro em andamento
+    where: 'tray', idx: 0,
+    base: new V3(), prevBase: new V3(),
+    carry: false, carryTarget: new V3(), dropPoint: new V3(),
+    hov: 0, hovT: 0, dropAt: 0, waveAt: null,
+    tx: 0, tz: 0,
+  };
+  root.userData.cube = cube;
+  scene.add(root);
+  return cube;
+}
+
+/* ── Placas ── */
 const plateGeoCache = {};
 function plateGeo(n) {
   if (plateGeoCache[n]) return plateGeoCache[n];
@@ -486,6 +608,7 @@ function plateGeo(n) {
   g.translate(0, -0.2, 0);
   return (plateGeoCache[n] = g);
 }
+const SLOT_GEO = (() => { const g = new THREE.PlaneGeometry(1.0, 1.0); g.rotateX(-Math.PI / 2); return g; })();
 
 /* ── Easings ── */
 const easeInOutCubic = p => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);
@@ -497,15 +620,16 @@ function easeOutBounce(x) {
   return n1 * (x -= 2.625 / d1) * x + 0.984375;
 }
 
-/* ── Tabuleiro ── */
+/* ── Tabuleiro (modelo, área de jogo e bandeja) ── */
 class Board {
   constructor(labelText) {
     this.root = new THREE.Group();
     scene.add(this.root);
     this.pos = new THREE.Vector3();
     this.target = new THREE.Vector3();
+    this.scaleT = 1;
     this.tiles = [];
-    this.types = [];
+    this.slotMeshes = [];
     this.n = 0;
     this.plate = new THREE.Mesh(plateGeo(2), matPlate);
     this.plate.receiveShadow = true;
@@ -525,11 +649,10 @@ class Board {
     this.root.add(this.label);
     this.drawLabel();
 
-    // anel de foco (teclado)
     const rg = new THREE.RingGeometry(0.72, 0.82, 4, 1, Math.PI / 4);
     rg.rotateX(-Math.PI / 2);
     this.ring = new THREE.Mesh(rg, new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false }));
-    this.ring.position.y = TILE_H + 0.03;
+    this.ring.position.y = 0.03;
     this.ring.visible = false;
     this.root.add(this.ring);
   }
@@ -547,37 +670,75 @@ class Board {
 
   get width() { return this.n * PITCH + 0.4; }
 
-  build(n, types, dropDelay = 0) {
+  clear() {
     for (const t of this.tiles) this.root.remove(t);
-    this.tiles = [];
+    for (const m of this.slotMeshes) this.root.remove(m);
+    this.tiles = []; this.slotMeshes = [];
+  }
+
+  setSize(n) {
+    this.clear();
     this.n = n;
-    this.types = [...types];
     this.plate.geometry = plateGeo(n);
     this.label.position.z = this.width / 2 + 0.5;
+  }
+
+  localPos(i) {
+    const n = this.n, r = Math.floor(i / n), c = i % n;
+    return new THREE.Vector3((c - (n - 1) / 2) * PITCH, 0, (r - (n - 1) / 2) * PITCH);
+  }
+  worldPos(i, y) {
+    const v = this.localPos(i);
+    v.y = y;
+    return this.root.localToWorld(v);
+  }
+
+  // modelo: ladrilhos planos
+  buildTiles(n, types, dropDelay = 0) {
+    this.setSize(n);
     const t0 = now();
     types.forEach((type, i) => {
       const g = new THREE.Group();
       fillTile(g, type);
-      const r = Math.floor(i / n), c = i % n;
-      g.position.set((c - (n - 1) / 2) * PITCH, 0, (r - (n - 1) / 2) * PITCH);
-      g.userData = {
-        index: i, hov: 0, hovTarget: 0, spinAt: null, waveAt: null,
-        dropAt: REDUCED ? -10 : t0 + dropDelay + i * 0.07,
-      };
+      g.position.copy(this.localPos(i));
+      g.userData = { dropAt: REDUCED ? -10 : t0 + dropDelay + i * 0.07 };
       this.root.add(g);
       this.tiles.push(g);
     });
   }
 
-  setType(i, type, spin = true) {
-    this.types[i] = type;
-    fillTile(this.tiles[i], type);
-    if (spin && !REDUCED) this.tiles[i].userData.spinAt = now();
+  // área de jogo: casas vazias
+  buildSlots(n) {
+    this.setSize(n);
+    for (let i = 0; i < n * n; i++) {
+      const m = new THREE.Mesh(SLOT_GEO, matSlot);
+      m.position.copy(this.localPos(i));
+      m.position.y = 0.004;
+      m.receiveShadow = true;
+      this.root.add(m);
+      this.slotMeshes.push(m);
+    }
+  }
+  setHot(idx) {
+    this.slotMeshes.forEach((m, j) => { m.material = j === idx ? matSlotHot : matSlot; });
+  }
+
+  // índice da casa sob uma posição do mundo (ou -1)
+  slotAt(world) {
+    const l = this.root.worldToLocal(world.clone());
+    const n = this.n;
+    const c = Math.round(l.x / PITCH + (n - 1) / 2), r = Math.round(l.z / PITCH + (n - 1) / 2);
+    if (c < 0 || r < 0 || c >= n || r >= n) return -1;
+    const lp = this.localPos(r * n + c);
+    if (Math.abs(l.x - lp.x) > PITCH * 0.62 || Math.abs(l.z - lp.z) > PITCH * 0.62) return -1;
+    return r * n + c;
   }
 }
 
 const modelBoard = new Board('Modelo');
-const playerBoard = new Board('Sua resposta');
+const playerBoard = new Board('Seu tabuleiro');
+const trayBoard = new Board('Peças');
+const BOARDS = [modelBoard, playerBoard, trayBoard];
 
 /* ── Confete ── */
 const CONF_N = 140;
@@ -600,7 +761,7 @@ function burstConfetti(origin) {
   const pos = confetti.pts.geometry.attributes.position;
   const col = confetti.pts.geometry.attributes.color;
   for (let i = 0; i < CONF_N; i++) {
-    pos.setXYZ(i, origin.x + (Math.random() - 0.5) * 1.2, origin.y + 0.3, origin.z + (Math.random() - 0.5) * 1.2);
+    pos.setXYZ(i, origin.x + (Math.random() - 0.5) * 1.2, origin.y + 0.8, origin.z + (Math.random() - 0.5) * 1.2);
     const a = Math.random() * Math.PI * 2, s = 1.5 + Math.random() * 3.5;
     confetti.vel[i * 3] = Math.cos(a) * s;
     confetti.vel[i * 3 + 1] = 4 + Math.random() * 4;
@@ -639,59 +800,71 @@ function layout() {
   const idle = state.phase === 'idle';
   const n = idle ? 3 : state.size;
   const W = n * PITCH + 0.4;
-  let extW, extD, cz = 0;
+  let extW, extD;
 
   modelBoard.root.visible = !idle;
-  modelBoard.label.visible = !idle;
-  playerBoard.label.visible = !idle;
+  trayBoard.root.visible = !idle;
+  for (const b of BOARDS) b.label.visible = !idle;
+  modelBoard.scaleT = 1; playerBoard.scaleT = 1; trayBoard.scaleT = 1;
 
   if (idle) {
     playerBoard.target.set(0, 0, 0);
     extW = W; extD = W;
-  } else if (aspect >= 1.1) {
-    const gap = 1.0;
-    modelBoard.target.set(-(W + gap) / 2, 0, 0);
-    playerBoard.target.set((W + gap) / 2, 0, 0);
-    extW = 2 * W + gap; extD = W + 1.0;
+  } else if (aspect >= 1.25) {
+    const sm = 0.8, Wm = W * sm, g = 1.0;
+    const total = Wm + W + W + 2 * g, x0 = -total / 2;
+    modelBoard.scaleT = sm;
+    modelBoard.target.set(x0 + Wm / 2, 0, 0);
+    playerBoard.target.set(x0 + Wm + g + W / 2, 0, 0);
+    trayBoard.target.set(x0 + Wm + g + W + g + W / 2, 0, 0);
+    extW = total; extD = W + 1.0;
   } else {
-    modelBoard.target.set(0, 0, -(W / 2 + 0.55));
-    playerBoard.target.set(0, 0, W / 2 + 0.85);
-    extW = W; extD = 2 * W + 1.6; cz = 0.15;
+    const sm = 0.7, Wm = W * sm, g = 1.15;
+    const total = Wm + W + W + 2 * g, z0 = -total / 2;
+    modelBoard.scaleT = sm;
+    modelBoard.target.set(0, 0, z0 + Wm / 2);
+    playerBoard.target.set(0, 0, z0 + Wm + g + W / 2);
+    trayBoard.target.set(0, 0, z0 + Wm + g + W + g + W / 2);
+    extW = W; extD = total;
   }
   const vF = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
   const hF = vF * aspect;
   const dH = (extW / 2 + 0.7) / hF;
-  const dV = (extD * Math.sin(ELEV) / 2 + 0.9) / vF;
-  cam.distTarget = Math.max(dH, dV) * (idle ? 1.25 : 1.2);
-  cam.lookTarget.set(0, 0, cz);
+  const dV = (extD * Math.sin(ELEV) / 2 + 1.2) / vF;
+  cam.distTarget = Math.max(dH, dV) * (idle ? 1.25 : 1.18);
+  cam.lookTarget.set(0, 0, 0);
 }
 
 function resize() {
-  const w = window.innerWidth, h = window.innerHeight;
-  renderer.setSize(w, h, false);
-  camera.aspect = w / h;
+  const w = window.innerWidth, hh = window.innerHeight;
+  renderer.setSize(w, hh, false);
+  camera.aspect = w / hh;
   camera.updateProjectionMatrix();
   layout();
 }
 window.addEventListener('resize', resize);
 window.addEventListener('pointermove', e => {
+  if (drag.on) return; // sem paralaxe enquanto arrasta
   mouse.x = (e.clientX / window.innerWidth - 0.5) * 2;
   mouse.y = (e.clientY / window.innerHeight - 0.5) * 2;
 });
 
 /* ── Estado do jogo ── */
 let LEVELS = generateLevels();
+let cubes = [];
 let state = freshState();
 function freshState() {
   return {
     phase: 'idle',          // idle | playing | feedback
     level: 0, size: 3, score: 0, lives: 3,
-    playerTiles: [], cursor: 0, kbd: false,
+    slots: [], tray: [],    // cubos em cada casa do tabuleiro / da bandeja
+    cursor: 0, kbd: false,
     startAt: 0, timeLeft: 0,
     timeTaken: [], history: [], totalCorrect: 0, totalWrong: 0,
     shakeAt: -10, showcaseNext: 0,
   };
 }
+const drag = { on: false };
 
 const sr = msg => { $('sr-live').textContent = msg; };
 let feedbackTimer = null;
@@ -700,10 +873,81 @@ function setFeedback(msg, type) {
   el.textContent = msg;
   el.className = 'show ' + type;
   clearTimeout(feedbackTimer);
-  feedbackTimer = setTimeout(() => el.classList.remove('show'), 1200);
+  feedbackTimer = setTimeout(() => el.classList.remove('show'), 1400);
 }
 
-/* ── Timer (calculado a partir do relógio, sem acumular erro) ── */
+/* ── Cubos: criação, contêineres e posições ── */
+function clearCubes() {
+  for (const c of cubes) scene.remove(c.root);
+  cubes = [];
+  state.slots = []; state.tray = [];
+  setHover(null);
+}
+
+const arr = where => (where === 'board' ? state.slots : state.tray);
+const boardOf = where => (where === 'board' ? playerBoard : trayBoard);
+function restPos(c) { return boardOf(c.where).worldPos(c.idx, CUBE_Y); }
+
+function addCube(where, idx, dropDelay) {
+  const c = createCube();
+  c.where = where; c.idx = idx;
+  arr(where)[idx] = c;
+  c.q0.copy(randomQuat());
+  c.body.quaternion.copy(c.q0);
+  c.dropAt = REDUCED ? -10 : now() + dropDelay;
+  c.base.copy(restPos(c));
+  c.base.y += REDUCED ? 0 : 5;
+  c.prevBase.copy(c.base);
+  c.root.position.copy(c.base);
+  cubes.push(c);
+  return c;
+}
+
+// move um cubo para uma casa; se houver outro lá, os dois trocam de lugar
+function moveCube(c, where, idx) {
+  if (c.where === where && c.idx === idx) return;
+  const dest = arr(where)[idx];
+  const ow = c.where, oi = c.idx;
+  arr(ow)[oi] = null;
+  if (dest) { dest.where = ow; dest.idx = oi; arr(ow)[oi] = dest; }
+  arr(where)[idx] = c;
+  c.where = where; c.idx = idx;
+}
+
+/* ── Giro dos cubos (sempre assenta em múltiplos de 90°) ── */
+const qTmp = new Quat();
+function applyTurn(c) {
+  const t = c.turn;
+  qTmp.setFromAxisAngle(t.axis, t.theta);
+  c.body.quaternion.copy(qTmp).multiply(t.q0);
+}
+function startTurn(c, axis) {
+  finishTurn(c);
+  c.turn = { axis: axis.clone(), q0: c.q0.clone(), theta: 0, target: 0, dragging: true };
+}
+function releaseTurn(c, steps) {
+  c.turn.target = steps * Math.PI / 2;
+  c.turn.dragging = false;
+}
+function finishTurn(c) {
+  if (!c.turn) return;
+  const t = c.turn;
+  qTmp.setFromAxisAngle(t.axis, t.dragging ? Math.round(t.theta / (Math.PI / 2)) * Math.PI / 2 : t.target);
+  c.q0.copy(snapQuat(qTmp.multiply(t.q0)));
+  c.body.quaternion.copy(c.q0);
+  c.turn = null;
+}
+function quickTurn(c, axis, dir) {
+  startTurn(c, axis);
+  releaseTurn(c, dir);
+  if (REDUCED) finishTurn(c);
+}
+function announceCube(c) {
+  const where = c.where === 'board' ? `Casa ${c.idx + 1}` : 'Bandeja';
+  sr(`${where}: ${TILE_NAMES[tileTypeOf(c.q0)]}`);
+}
+
+/* ── Timer (calculado a partir do relógio) ── */
 function updateTimerUI(left, total) {
   const pct = Math.max(0, left / total) * 100;
   const bar = $('timer-bar');
@@ -712,15 +956,18 @@ function updateTimerUI(left, total) {
   const txt = Math.ceil(left) + 's';
   if ($('timer-text').textContent !== txt) $('timer-text').textContent = txt;
 }
+function startTimer() { state.startAt = now() + (REDUCED ? 0 : 1.0); }
 
-function startTimer() {
-  state.startAt = now() + (REDUCED ? 0 : 0.9); // espera os cubos caírem
+function currentTypes() {
+  for (const c of cubes) if (c.turn && !c.turn.dragging) finishTurn(c);
+  return state.slots.map(c => (c ? tileTypeOf(c.q0) : null));
 }
 
 function timeOut() {
+  cancelDrag();
   state.phase = 'feedback';
   const lvl = LEVELS[state.level];
-  state.history.push({ size: lvl.size, pattern: [...lvl.pattern], player: [...state.playerTiles], correct: false });
+  state.history.push({ size: lvl.size, pattern: [...lvl.pattern], player: currentTypes(), correct: false });
   state.timeTaken.push(Math.round(lvl.time));
   state.lives--; state.totalWrong++;
   $('lives-display').textContent = state.lives;
@@ -733,22 +980,25 @@ function timeOut() {
 /* ── Níveis ── */
 function loadLevel(idx) {
   const lvl = LEVELS[idx];
+  const n = lvl.size;
   state.level = idx;
-  state.size = lvl.size;
+  state.size = n;
   $('level-label').textContent = `Nível ${idx + 1} de ${LEVELS.length}`;
   $('progress-fill').style.width = ((idx / LEVELS.length) * 100) + '%';
-  modelBoard.build(lvl.size, lvl.pattern, 0);
-  resetPlayerBoard(lvl.size, 0.3);
+
+  clearCubes();
+  modelBoard.buildTiles(n, lvl.pattern, 0);
+  playerBoard.buildSlots(n);
+  trayBoard.setSize(n);
+  state.slots = Array(n * n).fill(null);
+  state.tray = Array(n * n).fill(null);
+  state.cursor = 0;
+  for (let i = 0; i < n * n; i++) addCube('tray', i, 0.3 + i * 0.08);
+
   state.phase = 'playing';
   layout();
   startTimer();
-  sr(`Nível ${idx + 1} de ${LEVELS.length}. Grid ${lvl.size} por ${lvl.size}.`);
-}
-
-function resetPlayerBoard(size, delay = 0) {
-  state.playerTiles = Array(size * size).fill(T.W);
-  state.cursor = 0;
-  playerBoard.build(size, state.playerTiles, delay);
+  sr(`Nível ${idx + 1} de ${LEVELS.length}. Grid ${n} por ${n}. Monte o padrão com os ${n * n} cubos da bandeja.`);
 }
 
 function nextLevel() {
@@ -756,25 +1006,23 @@ function nextLevel() {
   loadLevel(state.level + 1);
 }
 
-/* ── Interação ── */
-function cycleTile(idx) {
-  if (state.phase !== 'playing') return;
-  const next = CYCLE[(CYCLE.indexOf(state.playerTiles[idx]) + 1) % CYCLE.length];
-  state.playerTiles[idx] = next;
-  playerBoard.setType(idx, next);
-  sr(`Cubo ${idx + 1}: ${TILE_NAMES[next]}`);
-}
-
 function checkAnswer() {
   if (state.phase !== 'playing') return;
+  if (state.slots.some(c => !c)) {
+    setFeedback('Coloque todos os cubos no tabuleiro', 'fail');
+    sr('Ainda há casas vazias. Coloque todos os cubos no tabuleiro.');
+    return;
+  }
+  cancelDrag();
   state.phase = 'feedback';
   const lvl = LEVELS[state.level];
   const t = now();
   const timeLeft = Math.max(0, lvl.time - Math.max(0, t - state.startAt));
   state.timeTaken.push(Math.round(lvl.time - timeLeft));
 
-  const correct = lvl.pattern.every((p, i) => p === state.playerTiles[i]);
-  state.history.push({ size: lvl.size, pattern: [...lvl.pattern], player: [...state.playerTiles], correct });
+  const types = currentTypes();
+  const correct = lvl.pattern.every((p, i) => p === types[i]);
+  state.history.push({ size: lvl.size, pattern: [...lvl.pattern], player: types, correct });
 
   if (correct) {
     const points = 100 + Math.max(0, Math.round((timeLeft / lvl.time) * 50));
@@ -782,9 +1030,9 @@ function checkAnswer() {
     $('score-display').textContent = state.score;
     setFeedback(`✅ Correto! +${points} pts`, 'ok');
     sr(`Correto! Mais ${points} pontos.`);
-    playerBoard.tiles.forEach((tile, i) => { tile.userData.waveAt = t + i * 0.07; });
+    state.slots.forEach((c, i) => { c.waveAt = t + i * 0.07; });
     burstConfetti(playerBoard.root.position.clone());
-    setTimeout(() => nextLevel(), 1100);
+    setTimeout(() => nextLevel(), 1300);
   } else {
     state.lives--; state.totalWrong++;
     $('lives-display').textContent = state.lives;
@@ -794,72 +1042,196 @@ function checkAnswer() {
       sr('Resposta errada. Fim de jogo.');
       setTimeout(endGame, 1000);
     } else {
-      setFeedback('❌ Não está certo. Tente de novo!', 'fail');
-      sr('Resposta errada. Tente de novo.');
-      setTimeout(() => {
-        resetPlayerBoard(lvl.size, 0);
-        state.phase = 'playing';
-        startTimer();
-      }, 700);
+      setFeedback('❌ Ainda não. Ajuste os cubos e confirme de novo!', 'fail');
+      sr('Resposta errada. Ajuste os cubos e confirme de novo.');
+      setTimeout(() => { if (state.phase === 'feedback') state.phase = 'playing'; }, 700);
     }
   }
 }
 
-/* ── Picking com raycaster ── */
+/* ── Interação: arrastar, virar e segurar ── */
 const raycaster = new THREE.Raycaster();
 const ndc = new THREE.Vector2();
-let hovered = -1;
-
-function pickTile(clientX, clientY) {
-  if (state.phase !== 'playing') return -1;
+function setRay(clientX, clientY) {
   const rect = canvas.getBoundingClientRect();
   ndc.set(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
   raycaster.setFromCamera(ndc, camera);
-  const hit = raycaster.intersectObjects(playerBoard.tiles, true)[0];
-  if (!hit) return -1;
+}
+function pickCube(clientX, clientY) {
+  if (state.phase !== 'playing') return null;
+  setRay(clientX, clientY);
+  const hit = raycaster.intersectObjects(cubes.map(c => c.root), true)[0];
+  if (!hit) return null;
   let o = hit.object;
-  while (o && o.userData.index === undefined) o = o.parent;
-  return o ? o.userData.index : -1;
+  while (o && !o.userData.cube) o = o.parent;
+  return o ? o.userData.cube : null;
+}
+function pointOnPlane(clientX, clientY, y) {
+  setRay(clientX, clientY);
+  const p = new V3();
+  return raycaster.ray.intersectPlane(new THREE.Plane(new V3(0, 1, 0), -y), p) ? p : null;
+}
+function unitPx(c) {
+  const dist = camera.position.distanceTo(c.root.position);
+  return window.innerHeight / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * dist);
 }
 
-function setHover(i) {
-  if (i === hovered) return;
-  if (playerBoard.tiles[hovered]) playerBoard.tiles[hovered].userData.hovTarget = 0;
-  hovered = i;
-  if (playerBoard.tiles[i]) playerBoard.tiles[i].userData.hovTarget = 1;
-  canvas.style.cursor = i >= 0 ? 'pointer' : 'default';
+let hoverCube = null;
+function setHover(c) {
+  if (c === hoverCube) return;
+  if (hoverCube) hoverCube.hovT = 0;
+  hoverCube = c;
+  if (c) c.hovT = 1;
+  canvas.style.cursor = c ? 'grab' : 'default';
 }
 
-canvas.addEventListener('pointermove', e => { if (e.pointerType !== 'touch') setHover(pickTile(e.clientX, e.clientY)); });
-canvas.addEventListener('pointerleave', () => setHover(-1));
-canvas.addEventListener('click', e => {
-  const i = pickTile(e.clientX, e.clientY);
-  if (i < 0) return;
+const CARRY_Y = 1.25;
+function beginCarry(c, clientX, clientY) {
+  finishTurn(c);
+  c.carry = true;
+  c.hovT = 0;
+  drag.mode = 'carry';
+  updateCarryPoints(c, clientX, clientY);
+  canvas.style.cursor = 'grabbing';
+}
+// o cubo fica sob o ponteiro (altura de carregar); a casa é a que o ponteiro enxerga no nível do tabuleiro
+function updateCarryPoints(c, clientX, clientY) {
+  const p = pointOnPlane(clientX, clientY, CARRY_Y);
+  if (p) c.carryTarget.copy(p);
+  const q = pointOnPlane(clientX, clientY, CUBE_Y);
+  if (q) c.dropPoint.copy(q);
+}
+
+function dropCube(c) {
+  c.carry = false;
+  playerBoard.setHot(-1);
+  const pos = c.dropPoint;
+  const s = playerBoard.slotAt(pos);
+  if (s >= 0) { moveCube(c, 'board', s); announceCube(c); return; }
+  const ts = trayBoard.slotAt(pos);
+  if (ts >= 0) { moveCube(c, 'tray', ts); announceCube(c); }
+  // fora de qualquer casa: volta para onde estava
+}
+
+function cancelDrag() {
+  if (!drag.on) return;
+  const c = drag.cube;
+  if (c) {
+    if (c.carry) { c.carry = false; playerBoard.setHot(-1); }
+    if (c.turn && c.turn.dragging) releaseTurn(c, Math.round(c.turn.theta / (Math.PI / 2)));
+  }
+  drag.on = false;
+}
+
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+canvas.addEventListener('pointerdown', e => {
+  if (state.phase !== 'playing' || drag.on) return;
+  const c = pickCube(e.clientX, e.clientY);
+  if (!c) return;
+  e.preventDefault();
+  try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+  Object.assign(drag, {
+    on: true, id: e.pointerId, cube: c, mode: 'pending',
+    x0: e.clientX, y0: e.clientY, t0: now(), axis: null, vel: 0, lastT: now(),
+  });
   state.kbd = false;
-  state.cursor = i;
-  cycleTile(i);
+  if (c.where === 'tray' || e.button === 2 || e.shiftKey) beginCarry(c, e.clientX, e.clientY);
 });
 
+canvas.addEventListener('pointermove', e => {
+  if (!drag.on) {
+    if (e.pointerType !== 'touch') setHover(pickCube(e.clientX, e.clientY));
+    return;
+  }
+  if (e.pointerId !== drag.id) return;
+  const c = drag.cube;
+  if (drag.mode === 'carry') {
+    updateCarryPoints(c, e.clientX, e.clientY);
+    return;
+  }
+  const dx = e.clientX - drag.x0, dy = e.clientY - drag.y0;
+  if (drag.mode === 'pending') {
+    if (Math.hypot(dx, dy) < 7) return;
+    drag.mode = 'turn';
+    drag.axis = Math.abs(dx) >= Math.abs(dy) ? 'y' : 'x';
+    startTurn(c, drag.axis === 'y' ? AX_Y : AX_X);
+    drag.lastT = now();
+  }
+  // um "tamanho de cubo" arrastado = 90°
+  const raw = ((drag.axis === 'y' ? dx : dy) / unitPx(c)) * (Math.PI / 2) * 1.15;
+  const tt = now();
+  const v = (raw - c.turn.theta) / Math.max(0.008, tt - drag.lastT);
+  drag.vel = drag.vel * 0.6 + v * 0.4;
+  drag.lastT = tt;
+  c.turn.theta = raw;
+  applyTurn(c);
+});
+
+function endPointer(e, cancelled) {
+  if (!drag.on || e.pointerId !== drag.id) return;
+  const c = drag.cube;
+  if (drag.mode === 'carry') {
+    if (cancelled) { c.carry = false; playerBoard.setHot(-1); } else dropCube(c);
+  } else if (drag.mode === 'turn') {
+    // pequeno "arremesso": a velocidade na hora de soltar empurra um pouco mais (zero se parou antes)
+    const v = now() - drag.lastT > 0.08 ? 0 : drag.vel;
+    const push = THREE.MathUtils.clamp(v * 0.05, -0.8, 0.8);
+    const steps = Math.round((c.turn.theta + push) / (Math.PI / 2));
+    releaseTurn(c, Math.max(-3, Math.min(3, steps)));
+    if (REDUCED) finishTurn(c);
+    sr('Cubo virado.');
+  } else if (!cancelled) {
+    quickTurn(c, AX_Y, 1); // toque rápido: um quarto de volta
+  }
+  drag.on = false;
+  canvas.style.cursor = 'default';
+  setHover(null);
+}
+canvas.addEventListener('pointerup', e => endPointer(e, false));
+canvas.addEventListener('pointercancel', e => endPointer(e, true));
+canvas.addEventListener('pointerleave', () => { if (!drag.on) setHover(null); });
+
+/* ── Teclado ── */
 window.addEventListener('keydown', e => {
   if (state.phase !== 'playing' || e.target.tagName === 'BUTTON') return;
   const n = state.size;
   let c = state.cursor;
   const r = Math.floor(c / n), col = c % n;
+  const cube = state.slots[c];
   switch (e.key) {
     case 'ArrowLeft':  c = r * n + Math.max(0, col - 1); break;
     case 'ArrowRight': c = r * n + Math.min(n - 1, col + 1); break;
     case 'ArrowUp':    c = Math.max(0, r - 1) * n + col; break;
     case 'ArrowDown':  c = Math.min(n - 1, r + 1) * n + col; break;
-    case ' ': case 'Enter':
-      e.preventDefault(); state.kbd = true; cycleTile(c); return;
-    case 'c': case 'C':
-      checkAnswer(); return;
+    case ' ': case 'Enter': {
+      e.preventDefault(); state.kbd = true;
+      if (!cube) {
+        const next = state.tray.find(Boolean);
+        if (next) { moveCube(next, 'board', c); announceCube(next); }
+        else sr('A bandeja está vazia.');
+      } else { quickTurn(cube, AX_Y, 1); }
+      return;
+    }
+    case 'q': case 'Q': if (cube) { quickTurn(cube, AX_Y, -1); } e.preventDefault(); state.kbd = true; return;
+    case 'e': case 'E': if (cube) { quickTurn(cube, AX_Y, 1); } e.preventDefault(); state.kbd = true; return;
+    case 'w': case 'W': if (cube) { quickTurn(cube, AX_X, -1); } e.preventDefault(); state.kbd = true; return;
+    case 's': case 'S': if (cube) { quickTurn(cube, AX_X, 1); } e.preventDefault(); state.kbd = true; return;
+    case 'Backspace': case 'Delete': {
+      e.preventDefault(); state.kbd = true;
+      if (cube) {
+        const free = state.tray.indexOf(null);
+        if (free >= 0) { moveCube(cube, 'tray', free); sr('Cubo devolvido à bandeja.'); }
+      }
+      return;
+    }
+    case 'c': case 'C': checkAnswer(); return;
     default: return;
   }
   e.preventDefault();
   state.kbd = true;
   state.cursor = c;
-  sr(`Cubo ${c + 1}: ${TILE_NAMES[state.playerTiles[c]]}`);
+  const cc = state.slots[c];
+  sr(cc ? `Casa ${c + 1}: ${TILE_NAMES[tileTypeOf(cc.q0)]}` : `Casa ${c + 1}: vazia`);
 });
 
 /* ── Telas ── */
@@ -870,10 +1242,13 @@ function renderStartBest() {
 }
 
 function startShowcase() {
+  cancelDrag();
   state.phase = 'idle';
-  const types = generatePattern(3, CYCLE, 'random');
-  playerBoard.build(3, types, 0);
-  state.showcaseNext = now() + 1.4;
+  clearCubes();
+  playerBoard.buildSlots(3);
+  state.slots = Array(9).fill(null);
+  for (let i = 0; i < 9; i++) addCube('board', i, i * 0.07);
+  state.showcaseNext = now() + 1.6;
   layout();
 }
 
@@ -885,11 +1260,13 @@ function startGame() {
   $('screen-start').hidden = true;
   $('screen-end').hidden = true;
   $('hud').hidden = false;
+  playerBoard.root.rotation.y = 0;
   loadLevel(0);
   $('check-btn').focus({ preventScroll: true });
 }
 
 function endGame() {
+  cancelDrag();
   $('hud').hidden = true;
   $('screen-end').hidden = false;
   $('end-score').textContent = state.score;
@@ -922,7 +1299,7 @@ function miniGrid(pattern, size, ts) {
   g.style.gridTemplateColumns = `repeat(${size}, ${ts}px)`;
   pattern.forEach(type => {
     const t = document.createElement('div');
-    t.className = 'mini-tile ' + type;
+    t.className = 'mini-tile ' + (type || 'empty');
     t.style.width = t.style.height = ts + 'px';
     g.appendChild(t);
   });
@@ -958,28 +1335,50 @@ $('check-btn').addEventListener('click', checkAnswer);
 $('restart-btn').addEventListener('click', showStart);
 
 /* ── Loop de animação ── */
-function animateTile(tile, t, dt) {
-  const u = tile.userData;
-  const dp = (t - u.dropAt) / 0.7;
+function animateTile(tile, t) {
+  const dp = (t - tile.userData.dropAt) / 0.7;
   if (dp < 0) { tile.visible = false; return; }
   tile.visible = true;
-  let y = 0, ry = 0;
-  if (dp < 1) y += (1 - easeOutBounce(dp)) * 4;
-  if (u.spinAt !== null) {
-    const p = (t - u.spinAt) / 0.45;
-    if (p < 1) { ry = easeInOutCubic(p) * Math.PI * 2; y += Math.sin(Math.PI * p) * 0.35; }
-    else u.spinAt = null;
+  tile.position.y = dp < 1 ? (1 - easeOutBounce(dp)) * 4 : 0;
+}
+
+const vTmp = new V3();
+function updateCube(c, t, dt) {
+  if (t < c.dropAt) { c.root.visible = false; return; }
+  c.root.visible = true;
+
+  // posição-alvo: no ponteiro (carregando) ou na casa onde está
+  const tp = c.carry ? c.carryTarget : restPos(c);
+  const k = 1 - Math.exp(-dt * (c.carry ? 24 : 13));
+  c.prevBase.copy(c.base);
+  c.base.lerp(tp, k);
+
+  // giro em andamento
+  if (c.turn && !c.turn.dragging) {
+    const tr = c.turn;
+    tr.theta += (tr.target - tr.theta) * (1 - Math.exp(-dt * 14));
+    applyTurn(c);
+    if (Math.abs(tr.target - tr.theta) < 0.004) { finishTurn(c); if (!c.carry && state.phase === 'playing') announceCube(c); }
   }
-  if (u.waveAt !== null) {
-    const p = (t - u.waveAt) / 0.55;
-    if (p >= 0 && p < 1) y += Math.sin(Math.PI * p) * 0.5;
-    else if (p >= 1) u.waveAt = null;
+
+  // elevações extras: foco do mouse e onda de acerto
+  c.hov += (c.hovT - c.hov) * Math.min(1, dt * 12);
+  let y = c.hov * 0.12;
+  if (c.waveAt !== null) {
+    const p = (t - c.waveAt) / 0.55;
+    if (p >= 0 && p < 1) y += Math.sin(Math.PI * p) * 0.6;
+    else if (p >= 1) c.waveAt = null;
   }
-  u.hov += (u.hovTarget - u.hov) * Math.min(1, dt * 12);
-  y += u.hov * 0.14;
-  tile.position.y = y;
-  tile.rotation.y = ry;
-  tile.scale.setScalar(1 + u.hov * 0.05);
+  c.root.position.set(c.base.x, c.base.y + y, c.base.z);
+
+  // inclina na direção do movimento
+  const vx = (c.base.x - c.prevBase.x) / Math.max(dt, 0.001);
+  const vz = (c.base.z - c.prevBase.z) / Math.max(dt, 0.001);
+  const ttz = THREE.MathUtils.clamp(-vx * 0.035, -0.45, 0.45);
+  const ttx = THREE.MathUtils.clamp(vz * 0.035, -0.45, 0.45);
+  c.tx += (ttx - c.tx) * Math.min(1, dt * 12);
+  c.tz += (ttz - c.tz) * Math.min(1, dt * 12);
+  c.root.rotation.set(c.tx, boardOf(c.where).root.rotation.y, c.tz);
 }
 
 let last = now();
@@ -988,30 +1387,35 @@ function frame() {
   const dt = Math.min(0.05, t - last);
   last = t;
 
-  // timer
+  // timer e pressão longa para pegar o cubo
   if (state.phase === 'playing') {
     const lvl = LEVELS[state.level];
     state.timeLeft = Math.max(0, lvl.time - Math.max(0, t - state.startAt));
     updateTimerUI(state.timeLeft, lvl.time);
     if (state.timeLeft <= 0) timeOut();
   }
+  if (drag.on && drag.mode === 'pending' && t - drag.t0 > 0.35) {
+    beginCarry(drag.cube, drag.x0, drag.y0);
+  }
 
-  // vitrine na tela inicial/final
-  if (state.phase === 'idle' && t > state.showcaseNext) {
-    const i = Math.floor(Math.random() * playerBoard.tiles.length);
-    playerBoard.setType(i, CYCLE[(CYCLE.indexOf(playerBoard.types[i]) + 1) % CYCLE.length]);
+  // vitrine nas telas inicial/final: um cubo vira de vez em quando
+  if (state.phase === 'idle' && t > state.showcaseNext && cubes.length) {
+    quickTurn(pickRandom(cubes), pickRandom([AX_X, AX_Y, AX_Z]), pickRandom([1, -1]));
     state.showcaseNext = t + 0.9;
   }
 
   // tabuleiros
   const shaking = !REDUCED && t - state.shakeAt < 0.45;
-  for (const b of [modelBoard, playerBoard]) {
+  for (const b of BOARDS) {
     b.pos.lerp(b.target, Math.min(1, dt * 7));
     b.root.position.copy(b.pos);
     if (b === playerBoard && shaking) b.root.position.x += Math.sin((t - state.shakeAt) * 55) * 0.14 * (1 - (t - state.shakeAt) / 0.45);
-    for (const tile of b.tiles) animateTile(tile, t, dt);
+    const s = b.root.scale.x + (b.scaleT - b.root.scale.x) * Math.min(1, dt * 8);
+    b.root.scale.setScalar(s);
+    b.root.updateMatrixWorld(true);
   }
-  // giro lento na vitrine; volta suave ao normal no jogo
+  for (const tile of modelBoard.tiles) animateTile(tile, t);
+
   if (state.phase === 'idle') {
     if (!REDUCED) playerBoard.root.rotation.y += dt * 0.35;
   } else {
@@ -1020,19 +1424,26 @@ function frame() {
     playerBoard.root.rotation.y = r * (1 - Math.min(1, dt * 6));
   }
 
+  // casa destacada sob o cubo carregado
+  if (drag.on && drag.mode === 'carry') {
+    playerBoard.setHot(playerBoard.slotAt(drag.cube.dropPoint));
+  }
+
+  for (const c of cubes) updateCube(c, t, dt);
+
   // anel de foco do teclado
-  const showRing = state.kbd && state.phase === 'playing' && playerBoard.tiles[state.cursor];
-  playerBoard.ring.visible = !!showRing;
+  const showRing = state.kbd && state.phase === 'playing';
+  playerBoard.ring.visible = showRing;
   if (showRing) {
-    const tl = playerBoard.tiles[state.cursor];
-    playerBoard.ring.position.x = tl.position.x;
-    playerBoard.ring.position.z = tl.position.z;
+    const lp = playerBoard.localPos(state.cursor);
+    playerBoard.ring.position.x = lp.x;
+    playerBoard.ring.position.z = lp.z;
   }
 
   // câmera suave + paralaxe do mouse
   cam.look.lerp(cam.lookTarget, Math.min(1, dt * 5));
   cam.dist += (cam.distTarget - cam.dist) * Math.min(1, dt * 5);
-  const px = REDUCED ? 0 : mouse.x * 0.7, pz = REDUCED ? 0 : mouse.y * 0.25;
+  const px = REDUCED ? 0 : mouse.x * 0.5, pz = REDUCED ? 0 : mouse.y * 0.2;
   camera.position.copy(cam.look).addScaledVector(camDir, cam.dist);
   camera.position.x += px;
   camera.position.z += pz;
@@ -1046,7 +1457,7 @@ function frame() {
 
 /* ── Início ── */
 document.fonts && document.fonts.load("800 42px Nunito").then(() => {
-  modelBoard.drawLabel(); playerBoard.drawLabel();
+  BOARDS.forEach(b => b.drawLabel());
 });
 renderStartBest();
 resize();

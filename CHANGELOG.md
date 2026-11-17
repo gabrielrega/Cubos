@@ -6,7 +6,7 @@ versionamento conforme [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 ### Adicionado
-- Versão 3D (`3d.html`) com three.js: tabuleiros 3D com sombras, cubos giratórios, câmera com paralaxe, confete ao acertar e tremor ao errar. Mantém as regras, o recorde e o controle por teclado da versão 2D.
+- Versão 3D (`3d.html`) com three.js e cubos físicos de 6 faces (2 brancas, 2 azuis, 2 diagonais): pegue os cubos na bandeja, arraste até o tabuleiro e vire-os até a face certa. Tabuleiros com sombras, câmera com paralaxe, confete ao acertar e tremor ao errar. Mantém as regras, o recorde e o controle por teclado.
 
 ## [0.2.0] - 2026-11-17
 ### Adicionado

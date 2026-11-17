@@ -10,6 +10,14 @@ Jogo de quebra-cabeça visuoespacial em página única (HTML, CSS e JS puros, se
 - Acertos valem 100 pontos mais um bônus de até 50 pela rapidez.
 - O melhor placar fica salvo no navegador (`localStorage`).
 
+### Versão 3D (`3d.html`)
+
+- Os cubos têm 6 faces: 2 brancas, 2 azuis e 2 diagonais. Todos são iguais; o que importa é a face e a rotação que ficam para cima.
+- **Arraste** um cubo da bandeja até uma casa do tabuleiro (soltar num cubo já colocado troca os dois).
+- **Arraste sobre um cubo colocado** para virá-lo: horizontal gira, vertical tomba. Ele sempre assenta em múltiplos de 90°. Um toque rápido dá um quarto de volta.
+- **Segure** um cubo colocado (ou use Shift/botão direito) para pegá-lo e movê-lo.
+- Teclado: setas escolhem a casa, Espaço coloca o próximo cubo, Q/E giram, W/S tombam, Backspace devolve e C confirma.
+
 ## Executar
 
 Abra `index.html` no navegador. O projeto também é publicado via GitHub Pages.
