@@ -6,6 +6,7 @@ versionamento conforme [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 ### Adicionado
+- Recorde de pontuação salvo no navegador (`localStorage`), exibido nas telas inicial e final.
 - Cubos jogáveis acessíveis por teclado (Tab, Enter e Espaço), com foco visível e `aria-label` descrevendo o estado.
 
 ### Corrigido

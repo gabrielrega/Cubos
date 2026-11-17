@@ -465,6 +465,15 @@
   .badge-ok   { background: #e7f9ef; color: #1e7c4a; }
   .badge-fail { background: #ffeaea; color: #c0392b; }
 
+  .best-line {
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--text-muted);
+    text-align: center;
+    margin-bottom: 16px;
+  }
+  .best-line.record { color: var(--success); }
+
   @media (max-width: 400px) {
     :root { --tile-size: 54px; }
     .divider { display: none; }
@@ -484,6 +493,7 @@
     <div class="feature-item"><span class="ficon">⏱️</span> Tempo limite por nível</div>
     <div class="feature-item"><span class="ficon">🧠</span> Treina raciocínio visuoespacial</div>
   </div>
+  <div class="best-line" id="start-best" hidden></div>
   <button class="btn btn-primary" onclick="startGame()">Começar →</button>
 </div>
 
@@ -536,6 +546,7 @@
   <div class="big-title" id="end-title">Mandou bem!</div>
   <p class="subtitle" id="end-subtitle">Sua pontuação final:</p>
   <div class="result-score" id="end-score">0</div>
+  <div class="best-line" id="end-best"></div>
 
   <div class="result-row">
     <div class="result-card">
@@ -703,6 +714,21 @@ function generateLevels() {
 }
 
 let LEVELS = generateLevels();
+
+// ─── Best score (localStorage) ────────────────────────────────────
+const BEST_KEY = 'cubomente.best';
+function loadBest() {
+  try { return parseInt(localStorage.getItem(BEST_KEY), 10) || 0; } catch (e) { return 0; }
+}
+function saveBest(v) {
+  try { localStorage.setItem(BEST_KEY, String(v)); } catch (e) { /* storage indisponível */ }
+}
+function renderStartBest() {
+  const el = document.getElementById('start-best');
+  const best = loadBest();
+  el.hidden = best <= 0;
+  el.textContent = `🏅 Recorde: ${best} pts`;
+}
 
 // ─── State ────────────────────────────────────────────────────────
 let state = {
@@ -899,6 +925,7 @@ function startGame() {
 }
 
 function restartGame() {
+  renderStartBest();
   showScreen('start');
 }
 
@@ -907,6 +934,16 @@ function endGame() {
   showScreen('end');
 
   document.getElementById('end-score').textContent = state.score;
+  const prevBest = loadBest();
+  const bestEl = document.getElementById('end-best');
+  if (state.score > prevBest) {
+    saveBest(state.score);
+    bestEl.textContent = prevBest > 0 ? '🎉 Novo recorde!' : '🏅 Primeiro recorde registrado!';
+    bestEl.className = 'best-line record';
+  } else {
+    bestEl.textContent = `🏅 Recorde: ${prevBest} pts`;
+    bestEl.className = 'best-line';
+  }
   document.getElementById('end-correct').textContent = state.totalCorrect;
   document.getElementById('end-wrong').textContent = state.totalWrong;
 
@@ -971,6 +1008,8 @@ function buildCorrectionList() {
     list.appendChild(row);
   });
 }
+
+renderStartBest();
 </script>
 </body>
 </html>

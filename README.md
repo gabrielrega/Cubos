@@ -8,6 +8,7 @@ Jogo de quebra-cabeça visuoespacial em página única (HTML, CSS e JS puros, se
 - São 8 níveis de dificuldade crescente (grids 2×2 e 3×3), com tempo limite por nível.
 - Você tem 3 vidas: errar ou estourar o tempo custa uma vida.
 - Acertos valem 100 pontos mais um bônus de até 50 pela rapidez.
+- O melhor placar fica salvo no navegador (`localStorage`).
 
 ## Executar
 
