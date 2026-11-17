@@ -5,6 +5,8 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/);
 versionamento conforme [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
+
+## [0.2.0] - 2026-11-17
 ### Adicionado
 - Recorde de pontuação salvo no navegador (`localStorage`), exibido nas telas inicial e final.
 - Cubos jogáveis acessíveis por teclado (Tab, Enter e Espaço), com foco visível e `aria-label` descrevendo o estado.
