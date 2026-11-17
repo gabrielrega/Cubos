@@ -5,6 +5,8 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/);
 versionamento conforme [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
+### Corrigido
+- Revisão das tentativas usava o tamanho de grid errado após erros, pois o histórico tem uma entrada por tentativa e não por nível.
 
 ## [0.1.0] - 2026-03-30
 ### Adicionado

@@ -757,7 +757,7 @@ function updateTimerUI() {
 function timeOut() {
   // record as wrong
   const lvl = LEVELS[state.level];
-  state.history.push({ pattern: [...lvl.pattern], player: [...state.playerTiles], correct: false });
+  state.history.push({ size: lvl.size, pattern: [...lvl.pattern], player: [...state.playerTiles], correct: false });
   state.timeTaken.push(Math.round((Date.now() - state.startTs) / 1000));
   state.lives--;
   state.totalWrong++;
@@ -814,7 +814,7 @@ function checkAnswer() {
   state.timeTaken.push(elapsed);
 
   const correct = lvl.pattern.every((t, i) => t === state.playerTiles[i]);
-  state.history.push({ pattern: [...lvl.pattern], player: [...state.playerTiles], correct });
+  state.history.push({ size: lvl.size, pattern: [...lvl.pattern], player: [...state.playerTiles], correct });
 
   if (correct) {
     const timeBonus = Math.max(0, Math.round((state.timeLeft / lvl.time) * 50));
@@ -932,11 +932,9 @@ function buildMiniGrid(pattern, size, tileSize) {
 function buildCorrectionList() {
   const list = document.getElementById('correction-list');
   list.innerHTML = '';
-  const lvlSizes = LEVELS.map(l => l.size);
 
-  state.history.forEach((h, i) => {
-    const lvlIdx = Math.min(i, LEVELS.length - 1);
-    const sz = lvlSizes[lvlIdx];
+  state.history.forEach(h => {
+    const sz = h.size;
     const ts = sz === 2 ? 22 : 16;
 
     const row = document.createElement('div');
