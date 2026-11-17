@@ -5,6 +5,8 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/);
 versionamento conforme [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
+### Adicionado
+- Versão 3D (`3d.html`) com three.js: tabuleiros 3D com sombras, cubos giratórios, câmera com paralaxe, confete ao acertar e tremor ao errar. Mantém as regras, o recorde e o controle por teclado da versão 2D.
 
 ## [0.2.0] - 2026-11-17
 ### Adicionado

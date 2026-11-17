@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CuboMente 3D</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+</script>
+<style>
+  :root {
+    --bg1: #1f2d5c;
+    --bg2: #080c1f;
+    --glass: rgba(255,255,255,0.08);
+    --glass-border: rgba(255,255,255,0.16);
+    --text: #f4f6ff;
+    --muted: #9aa6d0;
+    --accent: #4f8ef7;
+    --accent-dark: #2e6fe0;
+    --success: #3ec97a;
+    --danger: #f75b5b;
+    --warning: #f7a825;
+    --white-tile: #f0ede6;
+    --blue-tile: #4f8ef7;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  [hidden] { display: none !important; }
+
+  html, body { height: 100%; }
+  body {
+    font-family: 'Nunito', sans-serif;
+    color: var(--text);
+    background: radial-gradient(ellipse at 50% 25%, var(--bg1) 0%, var(--bg2) 72%);
+    overflow: hidden;
+  }
+  #scene {
+    position: fixed; inset: 0;
+    width: 100%; height: 100%;
+    display: block;
+    touch-action: manipulation;
+  }
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip: rect(0 0 0 0); white-space: nowrap;
+  }
+
+  /* ── HUD ── */
+  #hud {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column; justify-content: space-between; align-items: center;
+    padding: 14px 16px 18px;
+    pointer-events: none;
+  }
+  .hud-top, .hud-bottom { width: 100%; max-width: 520px; }
+  .hud-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .logo { font-size: 22px; font-weight: 900; letter-spacing: -0.5px; }
+  .logo span { color: var(--accent); }
+  .stats { display: flex; gap: 10px; }
+  .pill {
+    display: flex; align-items: center; gap: 6px;
+    padding: 4px 14px; border-radius: 999px;
+    background: var(--glass); border: 1.5px solid var(--glass-border);
+    backdrop-filter: blur(8px);
+    font-size: 14px; font-weight: 800;
+  }
+  .progress { height: 8px; border-radius: 999px; background: rgba(255,255,255,0.12); overflow: hidden; margin-bottom: 12px; }
+  .progress-fill { height: 100%; width: 0; border-radius: 999px; background: linear-gradient(90deg, var(--accent), #8cc0ff); transition: width .5s cubic-bezier(.4,0,.2,1); }
+  .level-row { display: flex; align-items: center; gap: 12px; }
+  .level-label { font-size: 12px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; color: #8cc0ff; white-space: nowrap; }
+  .timer-wrap { flex: 1; height: 8px; border-radius: 999px; background: rgba(255,255,255,0.12); overflow: hidden; }
+  .timer-bar { height: 100%; width: 100%; border-radius: 999px; background: var(--success); transition: background .3s; }
+  .timer-bar.warn { background: var(--warning); }
+  .timer-bar.danger { background: var(--danger); }
+  .timer-text { min-width: 34px; text-align: right; font-size: 13px; font-weight: 800; color: var(--muted); }
+
+  #feedback {
+    position: fixed; left: 50%; top: 150px; transform: translate(-50%, -8px);
+    padding: 10px 20px; border-radius: 999px;
+    font-size: 15px; font-weight: 800; white-space: nowrap;
+    opacity: 0; transition: opacity .2s, transform .2s;
+    pointer-events: none;
+    backdrop-filter: blur(8px);
+  }
+  #feedback.show { opacity: 1; transform: translate(-50%, 0); }
+  #feedback.ok { background: rgba(62,201,122,0.9); color: #04230f; }
+  #feedback.fail { background: rgba(247,91,91,0.92); color: #2b0606; }
+
+  .hint { text-align: center; font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 10px; }
+  .hint kbd { background: var(--glass); border: 1px solid var(--glass-border); border-radius: 6px; padding: 1px 6px; font-family: inherit; }
+  @media (hover: none) { .hint { display: none; } }
+
+  .btn {
+    display: block; width: 100%;
+    padding: 16px; border: none; border-radius: 16px;
+    font-family: inherit; font-size: 17px; font-weight: 800; color: #fff;
+    background: var(--accent); box-shadow: 0 4px 0 var(--accent-dark), 0 10px 30px rgba(79,142,247,.35);
+    cursor: pointer; pointer-events: auto;
+    transition: transform .1s, box-shadow .15s;
+  }
+  .btn:hover { transform: translateY(-1px); box-shadow: 0 6px 0 var(--accent-dark), 0 14px 34px rgba(79,142,247,.45); }
+  .btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--accent-dark); }
+  .btn:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+  .link-classic { display: block; text-align: center; margin-top: 14px; font-size: 13px; font-weight: 700; color: var(--muted); pointer-events: auto; }
+  .link-classic:hover { color: var(--text); }
+
+  /* ── Overlays ── */
+  .overlay {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 28px 16px 24px;
+    pointer-events: none;
+  }
+  .overlay.start { justify-content: space-between; }
+  .overlay.end { justify-content: center; background: rgba(6,10,28,0.55); backdrop-filter: blur(6px); overflow-y: auto; pointer-events: auto; }
+  .block { width: 100%; max-width: 480px; display: flex; flex-direction: column; align-items: center; }
+  .big-emoji { font-size: 52px; margin-bottom: 6px; }
+  .big-title { font-size: 34px; font-weight: 900; text-align: center; margin-bottom: 6px; }
+  .big-title span { color: var(--accent); }
+  .subtitle { font-size: 16px; font-weight: 600; color: var(--muted); text-align: center; line-height: 1.5; margin-bottom: 8px; }
+  .feature-list { width: 100%; display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+  .feature { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-radius: 12px; font-size: 14px; font-weight: 700; background: var(--glass); border: 1.5px solid var(--glass-border); backdrop-filter: blur(8px); }
+  .feature .ficon { font-size: 20px; }
+  .best-line { font-size: 14px; font-weight: 800; color: var(--muted); text-align: center; margin-bottom: 14px; }
+  .best-line.record { color: var(--success); }
+
+  .result-score { font-size: 64px; font-weight: 900; color: var(--accent); line-height: 1.1; }
+  .result-row { display: flex; gap: 10px; width: 100%; margin-bottom: 16px; }
+  .result-card { flex: 1; padding: 12px; border-radius: 12px; text-align: center; background: var(--glass); border: 1.5px solid var(--glass-border); }
+  .rc-val { font-size: 24px; font-weight: 900; color: #8cc0ff; }
+  .rc-label { font-size: 12px; font-weight: 700; color: var(--muted); margin-top: 2px; }
+  .review { width: 100%; padding: 14px; border-radius: 12px; margin-bottom: 18px; background: var(--glass); border: 1.5px solid var(--glass-border); max-height: 28vh; overflow-y: auto; }
+  .review-title { font-size: 13px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+  .review-item { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+  .review-item:last-child { margin-bottom: 0; }
+  .mini-grid { display: grid; gap: 3px; }
+  .mini-tile { border-radius: 4px; }
+  .mini-tile.white { background: var(--white-tile); }
+  .mini-tile.blue { background: var(--blue-tile); }
+  .mini-tile.diag-wb  { background: linear-gradient(to bottom left,  var(--blue-tile) 50%, var(--white-tile) 50%); }
+  .mini-tile.diag-bw  { background: linear-gradient(to bottom left,  var(--white-tile) 50%, var(--blue-tile) 50%); }
+  .mini-tile.diag-wb2 { background: linear-gradient(to bottom right, var(--blue-tile) 50%, var(--white-tile) 50%); }
+  .mini-tile.diag-bw2 { background: linear-gradient(to bottom right, var(--white-tile) 50%, var(--blue-tile) 50%); }
+  .review-arrow { color: var(--muted); font-size: 18px; }
+
+  #fallback { position: fixed; inset: 0; display: flex; flex-direction: column; gap: 12px; align-items: center; justify-content: center; text-align: center; padding: 24px; }
+  #fallback a { color: #8cc0ff; font-weight: 800; }
+
+  @media (max-width: 400px) {
+    .big-title { font-size: 28px; }
+    #feedback { top: 140px; font-size: 14px; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="scene" role="img" aria-label="Tabuleiros 3D: à esquerda o modelo, à direita a sua resposta"></canvas>
+<div class="sr-only" id="sr-live" aria-live="polite"></div>
+
+<div id="fallback" hidden>
+  <div style="font-size:48px">🧩</div>
+  <p>Seu navegador não conseguiu iniciar o WebGL, necessário para a versão 3D.</p>
+  <a href="index.html">Jogar a versão clássica</a>
+</div>
+
+<!-- HUD do jogo -->
+<div id="hud" hidden>
+  <div class="hud-top">
+    <div class="hud-head">
+      <div class="logo">Cubo<span>Mente</span> 3D</div>
+      <div class="stats">
+        <div class="pill" aria-label="Pontos"><span>⭐</span><span id="score-display">0</span></div>
+        <div class="pill" aria-label="Vidas"><span>❤️</span><span id="lives-display">3</span></div>
+      </div>
+    </div>
+    <div class="progress"><div class="progress-fill" id="progress-fill"></div></div>
+    <div class="level-row">
+      <div class="level-label" id="level-label">Nível 1</div>
+      <div class="timer-wrap"><div class="timer-bar" id="timer-bar"></div></div>
+      <div class="timer-text" id="timer-text">15s</div>
+    </div>
+  </div>
+  <div class="hud-bottom">
+    <div class="hint"><kbd>←↑↓→</kbd> mover · <kbd>Espaço</kbd> girar cubo · <kbd>C</kbd> confirmar</div>
+    <button class="btn" id="check-btn" type="button">Confirmar ✓</button>
+  </div>
+</div>
+<div id="feedback" role="status"></div>
+
+<!-- Tela inicial -->
+<div class="overlay start" id="screen-start">
+  <div class="block">
+    <div class="big-emoji">🧩</div>
+    <h1 class="big-title">Cubo<span>Mente</span> 3D</h1>
+    <p class="subtitle">Olhe o modelo e reproduza o padrão<br>nos cubos giratórios.</p>
+  </div>
+  <div class="block">
+    <div class="feature-list">
+      <div class="feature"><span class="ficon">🎯</span> 8 níveis de dificuldade crescente</div>
+      <div class="feature"><span class="ficon">⏱️</span> Tempo limite por nível</div>
+      <div class="feature"><span class="ficon">🧠</span> Treina raciocínio visuoespacial</div>
+    </div>
+    <div class="best-line" id="start-best" hidden></div>
+    <button class="btn" id="start-btn" type="button">Começar →</button>
+    <a class="link-classic" href="index.html">Versão clássica (2D)</a>
+  </div>
+</div>
+
+<!-- Tela final -->
+<div class="overlay end" id="screen-end" hidden>
+  <div class="block">
+    <div class="big-emoji" id="end-emoji">🏆</div>
+    <div class="big-title" id="end-title">Mandou bem!</div>
+    <p class="subtitle">Sua pontuação final:</p>
+    <div class="result-score" id="end-score">0</div>
+    <div class="best-line" id="end-best"></div>
+    <div class="result-row">
+      <div class="result-card"><div class="rc-val" id="end-correct">0</div><div class="rc-label">✅ Corretos</div></div>
+      <div class="result-card"><div class="rc-val" id="end-wrong">0</div><div class="rc-label">❌ Errados</div></div>
+      <div class="result-card"><div class="rc-val" id="end-time">0s</div><div class="rc-label">⚡ Tempo médio</div></div>
+    </div>
+    <div class="review">
+      <div class="review-title">Revisão das tentativas</div>
+      <div id="review-list"></div>
+    </div>
+    <button class="btn" id="restart-btn" type="button">Jogar de novo 🔄</button>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+
+/* ════════════════ Lógica do jogo (mesma da versão 2D) ════════════════ */
+const T = { W: 'white', B: 'blue', WB: 'diag-wb', BW: 'diag-bw', WB2: 'diag-wb2', BW2: 'diag-bw2' };
+const CYCLE = [T.W, T.WB, T.WB2, T.B, T.BW, T.BW2];
+const TILE_NAMES = {
+  'white': 'branco', 'blue': 'azul',
+  'diag-wb': 'branco com diagonal azul superior direita',
+  'diag-wb2': 'branco com diagonal azul superior esquerda',
+  'diag-bw': 'azul com diagonal branca superior direita',
+  'diag-bw2': 'azul com diagonal branca superior esquerda',
+};
+
+const TIER_DEFS = [
+  { size: 2, time: 15, pool: [T.W, T.B], styles: ['intruder', 'stripes', 'cross'], count: 2 },
+  { size: 2, time: 18, pool: [T.W, T.B, T.WB, T.BW, T.WB2, T.BW2], styles: ['symmetric', 'x_cross', 'random'], count: 2 },
+  { size: 3, time: 25, pool: [T.W, T.B], styles: ['border', 'checkerboard', 'stripes', 'cross'], count: 2 },
+  { size: 3, time: 30, pool: [T.W, T.B, T.WB, T.BW, T.WB2, T.BW2], styles: ['symmetric', 'border', 'x_cross', 'random'], count: 2 },
+];
+
+function pickRandom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+function generatePattern(size, pool, style) {
+  const total = size * size;
+  let pattern = Array(total).fill(pool[0]);
+
+  switch (style) {
+    case 'intruder': {
+      const base = pickRandom(pool);
+      let intruder = pickRandom(pool);
+      while (intruder === base) intruder = pickRandom(pool);
+      pattern.fill(base);
+      pattern[Math.floor(Math.random() * total)] = intruder;
+      break;
+    }
+    case 'stripes': {
+      const isHorizontal = Math.random() > 0.5;
+      const colors = [pickRandom(pool), pickRandom(pool)];
+      for (let i = 0; i < total; i++) {
+        const line = isHorizontal ? Math.floor(i / size) : (i % size);
+        pattern[i] = colors[line % 2];
+      }
+      break;
+    }
+    case 'checkerboard': {
+      const c1 = pickRandom(pool);
+      let c2 = pickRandom(pool);
+      while (c2 === c1) c2 = pickRandom(pool);
+      for (let i = 0; i < total; i++) {
+        const row = Math.floor(i / size), col = i % size;
+        pattern[i] = (row + col) % 2 === 0 ? c1 : c2;
+      }
+      break;
+    }
+    case 'border': {
+      const borderC = pickRandom(pool);
+      let centerC = pickRandom(pool);
+      while (centerC === borderC) centerC = pickRandom(pool);
+      pattern.fill(borderC);
+      for (let r = 1; r < size - 1; r++)
+        for (let c = 1; c < size - 1; c++) pattern[r * size + c] = centerC;
+      break;
+    }
+    case 'symmetric': {
+      const half = Math.ceil(size / 2);
+      const isVertical = Math.random() > 0.5;
+      for (let r = 0; r < size; r++) {
+        for (let c = 0; c < size; c++) {
+          const isPrimaryHalf = isVertical ? (c < half) : (r < half);
+          if (isPrimaryHalf) {
+            pattern[r * size + c] = pickRandom(pool);
+          } else {
+            const mirR = isVertical ? r : (size - 1 - r);
+            const mirC = isVertical ? (size - 1 - c) : c;
+            pattern[r * size + c] = pattern[mirR * size + mirC];
+          }
+        }
+      }
+      break;
+    }
+    case 'cross': {
+      const c1 = pickRandom(pool);
+      let c2 = pickRandom(pool);
+      while (c2 === c1) c2 = pickRandom(pool);
+      const mid = Math.floor(size / 2);
+      pattern.fill(c1);
+      for (let i = 0; i < total; i++) {
+        const r = Math.floor(i / size), c = i % size;
+        if (r === mid || c === mid) pattern[i] = c2;
+      }
+      break;
+    }
+    case 'x_cross': {
+      const c1 = pickRandom(pool);
+      let c2 = pickRandom(pool);
+      while (c2 === c1) c2 = pickRandom(pool);
+      pattern.fill(c1);
+      for (let i = 0; i < total; i++) {
+        const r = Math.floor(i / size), c = i % size;
+        if (r === c || (r + c) === (size - 1)) pattern[i] = c2;
+      }
+      break;
+    }
+    default:
+      do {
+        pattern = Array.from({ length: total }, () => pickRandom(pool));
+      } while (new Set(pattern).size < 2);
+  }
+
+  if (new Set(pattern).size < 2) {
+    let alt = pickRandom(pool);
+    while (alt === pattern[0]) alt = pickRandom(pool);
+    pattern[Math.floor(Math.random() * total)] = alt;
+  }
+  return pattern;
+}
+
+function generateLevels() {
+  const levels = [];
+  for (const tier of TIER_DEFS) {
+    for (let i = 0; i < tier.count; i++) {
+      const style = pickRandom(tier.styles);
+      levels.push({ size: tier.size, time: tier.time, pattern: generatePattern(tier.size, tier.pool, style) });
+    }
+  }
+  return levels;
+}
+
+/* ════════════════ Recorde (localStorage) ════════════════ */
+const BEST_KEY = 'cubomente.best';
+function loadBest() { try { return parseInt(localStorage.getItem(BEST_KEY), 10) || 0; } catch (e) { return 0; } }
+function saveBest(v) { try { localStorage.setItem(BEST_KEY, String(v)); } catch (e) { /* storage indisponível */ } }
+
+/* ════════════════ Cena three.js ════════════════ */
+const $ = id => document.getElementById(id);
+const REDUCED = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+const now = () => performance.now() / 1000;
+
+const canvas = $('scene');
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+} catch (e) {
+  $('fallback').hidden = false;
+  $('screen-start').hidden = true;
+  throw e;
+}
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
+
+// Luzes
+scene.add(new THREE.HemisphereLight(0xcfdcff, 0x1a2145, 1.0));
+const sun = new THREE.DirectionalLight(0xffffff, 2.4);
+sun.position.set(4, 9, 6);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.left = -9; sun.shadow.camera.right = 9;
+sun.shadow.camera.top = 9; sun.shadow.camera.bottom = -9;
+sun.shadow.camera.near = 1; sun.shadow.camera.far = 30;
+sun.shadow.bias = -0.0005;
+scene.add(sun);
+const rim = new THREE.PointLight(0x4f8ef7, 60, 30);
+rim.position.set(-5, 3, -6);
+scene.add(rim);
+
+// Chão que só recebe sombra (o fundo é um gradiente CSS)
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), new THREE.ShadowMaterial({ opacity: 0.4 }));
+floor.rotation.x = -Math.PI / 2;
+floor.position.y = -0.21;
+floor.receiveShadow = true;
+scene.add(floor);
+
+// Poeira flutuante para dar profundidade
+const dust = (() => {
+  const n = 160, pos = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    pos[i * 3] = (Math.random() - 0.5) * 30;
+    pos[i * 3 + 1] = Math.random() * 10 - 1;
+    pos[i * 3 + 2] = (Math.random() - 0.5) * 30;
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const m = new THREE.PointsMaterial({ color: 0x9fb8ff, size: 0.06, transparent: true, opacity: 0.55, depthWrite: false });
+  const p = new THREE.Points(g, m);
+  scene.add(p);
+  return p;
+})();
+
+/* ── Geometria e materiais dos cubos ── */
+const PITCH = 1.15;   // distância entre centros
+const TILE_H = 0.24;  // altura do cubo
+const BEVEL = 0.025;
+
+const matWhite = new THREE.MeshPhysicalMaterial({ color: 0xf0ede6, roughness: 0.4, clearcoat: 0.5, clearcoatRoughness: 0.3 });
+const matBlue  = new THREE.MeshPhysicalMaterial({ color: 0x4f8ef7, roughness: 0.35, clearcoat: 0.6, clearcoatRoughness: 0.25 });
+const matPlate = new THREE.MeshPhysicalMaterial({ color: 0x2a3563, roughness: 0.55, clearcoat: 0.3 });
+
+function prism(points) {
+  const shape = new THREE.Shape();
+  points.forEach(([x, y], i) => (i ? shape.lineTo(x, y) : shape.moveTo(x, y)));
+  shape.closePath();
+  const geo = new THREE.ExtrudeGeometry(shape, {
+    depth: TILE_H - 2 * BEVEL, bevelEnabled: true,
+    bevelThickness: BEVEL, bevelSize: BEVEL, bevelOffset: -BEVEL, bevelSegments: 2,
+  });
+  geo.translate(0, 0, BEVEL);
+  geo.rotateX(-Math.PI / 2); // plano XY -> XZ, extrusão vira altura (y)
+  return geo;
+}
+const h = 0.5;
+const GEO = {
+  square: prism([[-h, -h], [h, -h], [h, h], [-h, h]]),
+  bl: prism([[-h, h], [-h, -h], [h, -h]]),   // triângulo inferior esquerdo
+  tr: prism([[-h, h], [h, h], [h, -h]]),     // triângulo superior direito
+  tl: prism([[-h, h], [h, h], [-h, -h]]),    // triângulo superior esquerdo
+  br: prism([[h, h], [h, -h], [-h, -h]]),    // triângulo inferior direito
+};
+// [geometria, material] de cada metade de cada tipo
+const TILE_PARTS = {
+  'white':    [[GEO.square, matWhite]],
+  'blue':     [[GEO.square, matBlue]],
+  'diag-wb':  [[GEO.bl, matWhite], [GEO.tr, matBlue]],
+  'diag-bw':  [[GEO.bl, matBlue],  [GEO.tr, matWhite]],
+  'diag-wb2': [[GEO.br, matWhite], [GEO.tl, matBlue]],
+  'diag-bw2': [[GEO.br, matBlue],  [GEO.tl, matWhite]],
+};
+
+function fillTile(group, type) {
+  group.clear();
+  for (const [geo, mat] of TILE_PARTS[type]) {
+    const m = new THREE.Mesh(geo, mat);
+    m.castShadow = true;
+    m.receiveShadow = true;
+    group.add(m);
+  }
+}
+
+const plateGeoCache = {};
+function plateGeo(n) {
+  if (plateGeoCache[n]) return plateGeoCache[n];
+  const W = n * PITCH + 0.4, r = 0.3, x = -W / 2, y = -W / 2;
+  const s = new THREE.Shape();
+  s.moveTo(x + r, y);
+  s.lineTo(x + W - r, y); s.quadraticCurveTo(x + W, y, x + W, y + r);
+  s.lineTo(x + W, y + W - r); s.quadraticCurveTo(x + W, y + W, x + W - r, y + W);
+  s.lineTo(x + r, y + W); s.quadraticCurveTo(x, y + W, x, y + W - r);
+  s.lineTo(x, y + r); s.quadraticCurveTo(x, y, x + r, y);
+  const g = new THREE.ExtrudeGeometry(s, { depth: 0.2, bevelEnabled: false, curveSegments: 8 });
+  g.rotateX(-Math.PI / 2);
+  g.translate(0, -0.2, 0);
+  return (plateGeoCache[n] = g);
+}
+
+/* ── Easings ── */
+const easeInOutCubic = p => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);
+function easeOutBounce(x) {
+  const n1 = 7.5625, d1 = 2.75;
+  if (x < 1 / d1) return n1 * x * x;
+  if (x < 2 / d1) return n1 * (x -= 1.5 / d1) * x + 0.75;
+  if (x < 2.5 / d1) return n1 * (x -= 2.25 / d1) * x + 0.9375;
+  return n1 * (x -= 2.625 / d1) * x + 0.984375;
+}
+
+/* ── Tabuleiro ── */
+class Board {
+  constructor(labelText) {
+    this.root = new THREE.Group();
+    scene.add(this.root);
+    this.pos = new THREE.Vector3();
+    this.target = new THREE.Vector3();
+    this.tiles = [];
+    this.types = [];
+    this.n = 0;
+    this.plate = new THREE.Mesh(plateGeo(2), matPlate);
+    this.plate.receiveShadow = true;
+    this.plate.castShadow = true;
+    this.root.add(this.plate);
+
+    this.labelText = labelText;
+    this.labelCanvas = document.createElement('canvas');
+    this.labelCanvas.width = 512; this.labelCanvas.height = 96;
+    this.labelTex = new THREE.CanvasTexture(this.labelCanvas);
+    this.labelTex.colorSpace = THREE.SRGBColorSpace;
+    this.labelTex.anisotropy = 4;
+    const lg = new THREE.PlaneGeometry(3.2, 0.6);
+    lg.rotateX(-Math.PI / 2);
+    this.label = new THREE.Mesh(lg, new THREE.MeshBasicMaterial({ map: this.labelTex, transparent: true, toneMapped: false, depthWrite: false }));
+    this.label.position.y = 0.01;
+    this.root.add(this.label);
+    this.drawLabel();
+
+    // anel de foco (teclado)
+    const rg = new THREE.RingGeometry(0.72, 0.82, 4, 1, Math.PI / 4);
+    rg.rotateX(-Math.PI / 2);
+    this.ring = new THREE.Mesh(rg, new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false }));
+    this.ring.position.y = TILE_H + 0.03;
+    this.ring.visible = false;
+    this.root.add(this.ring);
+  }
+
+  drawLabel() {
+    const ctx = this.labelCanvas.getContext('2d');
+    ctx.clearRect(0, 0, 512, 96);
+    ctx.font = "800 42px Nunito, sans-serif";
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(190,205,255,0.9)';
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '6px';
+    ctx.fillText(this.labelText.toUpperCase(), 256, 62);
+    this.labelTex.needsUpdate = true;
+  }
+
+  get width() { return this.n * PITCH + 0.4; }
+
+  build(n, types, dropDelay = 0) {
+    for (const t of this.tiles) this.root.remove(t);
+    this.tiles = [];
+    this.n = n;
+    this.types = [...types];
+    this.plate.geometry = plateGeo(n);
+    this.label.position.z = this.width / 2 + 0.5;
+    const t0 = now();
+    types.forEach((type, i) => {
+      const g = new THREE.Group();
+      fillTile(g, type);
+      const r = Math.floor(i / n), c = i % n;
+      g.position.set((c - (n - 1) / 2) * PITCH, 0, (r - (n - 1) / 2) * PITCH);
+      g.userData = {
+        index: i, hov: 0, hovTarget: 0, spinAt: null, waveAt: null,
+        dropAt: REDUCED ? -10 : t0 + dropDelay + i * 0.07,
+      };
+      this.root.add(g);
+      this.tiles.push(g);
+    });
+  }
+
+  setType(i, type, spin = true) {
+    this.types[i] = type;
+    fillTile(this.tiles[i], type);
+    if (spin && !REDUCED) this.tiles[i].userData.spinAt = now();
+  }
+}
+
+const modelBoard = new Board('Modelo');
+const playerBoard = new Board('Sua resposta');
+
+/* ── Confete ── */
+const CONF_N = 140;
+const confetti = (() => {
+  const pos = new Float32Array(CONF_N * 3).fill(-100);
+  const col = new Float32Array(CONF_N * 3);
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  const m = new THREE.PointsMaterial({ size: 0.16, vertexColors: true, transparent: true, depthWrite: false, toneMapped: false });
+  const pts = new THREE.Points(g, m);
+  pts.frustumCulled = false;
+  scene.add(pts);
+  return { pts, vel: new Float32Array(CONF_N * 3), life: new Float32Array(CONF_N) };
+})();
+const CONF_COLORS = [0x4f8ef7, 0xf0ede6, 0x3ec97a, 0xf7a825, 0x8cc0ff].map(c => new THREE.Color(c));
+
+function burstConfetti(origin) {
+  if (REDUCED) return;
+  const pos = confetti.pts.geometry.attributes.position;
+  const col = confetti.pts.geometry.attributes.color;
+  for (let i = 0; i < CONF_N; i++) {
+    pos.setXYZ(i, origin.x + (Math.random() - 0.5) * 1.2, origin.y + 0.3, origin.z + (Math.random() - 0.5) * 1.2);
+    const a = Math.random() * Math.PI * 2, s = 1.5 + Math.random() * 3.5;
+    confetti.vel[i * 3] = Math.cos(a) * s;
+    confetti.vel[i * 3 + 1] = 4 + Math.random() * 4;
+    confetti.vel[i * 3 + 2] = Math.sin(a) * s;
+    confetti.life[i] = 1.1 + Math.random() * 0.6;
+    const c = CONF_COLORS[i % CONF_COLORS.length];
+    col.setXYZ(i, c.r, c.g, c.b);
+  }
+  pos.needsUpdate = true; col.needsUpdate = true;
+}
+function updateConfetti(dt) {
+  const pos = confetti.pts.geometry.attributes.position;
+  let any = false;
+  for (let i = 0; i < CONF_N; i++) {
+    if (confetti.life[i] <= 0) continue;
+    any = true;
+    confetti.life[i] -= dt;
+    confetti.vel[i * 3 + 1] -= 11 * dt;
+    pos.setXYZ(i,
+      pos.getX(i) + confetti.vel[i * 3] * dt,
+      pos.getY(i) + confetti.vel[i * 3 + 1] * dt,
+      pos.getZ(i) + confetti.vel[i * 3 + 2] * dt);
+    if (confetti.life[i] <= 0) pos.setXYZ(i, 0, -100, 0);
+  }
+  if (any) pos.needsUpdate = true;
+}
+
+/* ── Layout e câmera ── */
+const ELEV = THREE.MathUtils.degToRad(56);
+const camDir = new THREE.Vector3(0, Math.sin(ELEV), Math.cos(ELEV));
+const cam = { look: new THREE.Vector3(), lookTarget: new THREE.Vector3(), dist: 12, distTarget: 12 };
+const mouse = { x: 0, y: 0 };
+
+function layout() {
+  const aspect = window.innerWidth / window.innerHeight;
+  const idle = state.phase === 'idle';
+  const n = idle ? 3 : state.size;
+  const W = n * PITCH + 0.4;
+  let extW, extD, cz = 0;
+
+  modelBoard.root.visible = !idle;
+  modelBoard.label.visible = !idle;
+  playerBoard.label.visible = !idle;
+
+  if (idle) {
+    playerBoard.target.set(0, 0, 0);
+    extW = W; extD = W;
+  } else if (aspect >= 1.1) {
+    const gap = 1.0;
+    modelBoard.target.set(-(W + gap) / 2, 0, 0);
+    playerBoard.target.set((W + gap) / 2, 0, 0);
+    extW = 2 * W + gap; extD = W + 1.0;
+  } else {
+    modelBoard.target.set(0, 0, -(W / 2 + 0.55));
+    playerBoard.target.set(0, 0, W / 2 + 0.85);
+    extW = W; extD = 2 * W + 1.6; cz = 0.15;
+  }
+  const vF = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  const hF = vF * aspect;
+  const dH = (extW / 2 + 0.7) / hF;
+  const dV = (extD * Math.sin(ELEV) / 2 + 0.9) / vF;
+  cam.distTarget = Math.max(dH, dV) * (idle ? 1.25 : 1.2);
+  cam.lookTarget.set(0, 0, cz);
+}
+
+function resize() {
+  const w = window.innerWidth, h = window.innerHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  layout();
+}
+window.addEventListener('resize', resize);
+window.addEventListener('pointermove', e => {
+  mouse.x = (e.clientX / window.innerWidth - 0.5) * 2;
+  mouse.y = (e.clientY / window.innerHeight - 0.5) * 2;
+});
+
+/* ── Estado do jogo ── */
+let LEVELS = generateLevels();
+let state = freshState();
+function freshState() {
+  return {
+    phase: 'idle',          // idle | playing | feedback
+    level: 0, size: 3, score: 0, lives: 3,
+    playerTiles: [], cursor: 0, kbd: false,
+    startAt: 0, timeLeft: 0,
+    timeTaken: [], history: [], totalCorrect: 0, totalWrong: 0,
+    shakeAt: -10, showcaseNext: 0,
+  };
+}
+
+const sr = msg => { $('sr-live').textContent = msg; };
+let feedbackTimer = null;
+function setFeedback(msg, type) {
+  const el = $('feedback');
+  el.textContent = msg;
+  el.className = 'show ' + type;
+  clearTimeout(feedbackTimer);
+  feedbackTimer = setTimeout(() => el.classList.remove('show'), 1200);
+}
+
+/* ── Timer (calculado a partir do relógio, sem acumular erro) ── */
+function updateTimerUI(left, total) {
+  const pct = Math.max(0, left / total) * 100;
+  const bar = $('timer-bar');
+  bar.style.width = pct + '%';
+  bar.className = 'timer-bar' + (pct < 25 ? ' danger' : pct < 50 ? ' warn' : '');
+  const txt = Math.ceil(left) + 's';
+  if ($('timer-text').textContent !== txt) $('timer-text').textContent = txt;
+}
+
+function startTimer() {
+  state.startAt = now() + (REDUCED ? 0 : 0.9); // espera os cubos caírem
+}
+
+function timeOut() {
+  state.phase = 'feedback';
+  const lvl = LEVELS[state.level];
+  state.history.push({ size: lvl.size, pattern: [...lvl.pattern], player: [...state.playerTiles], correct: false });
+  state.timeTaken.push(Math.round(lvl.time));
+  state.lives--; state.totalWrong++;
+  $('lives-display').textContent = state.lives;
+  setFeedback('⏰ Tempo esgotado!', 'fail');
+  sr('Tempo esgotado.');
+  state.shakeAt = now();
+  setTimeout(() => (state.lives <= 0 ? endGame() : nextLevel()), 1000);
+}
+
+/* ── Níveis ── */
+function loadLevel(idx) {
+  const lvl = LEVELS[idx];
+  state.level = idx;
+  state.size = lvl.size;
+  $('level-label').textContent = `Nível ${idx + 1} de ${LEVELS.length}`;
+  $('progress-fill').style.width = ((idx / LEVELS.length) * 100) + '%';
+  modelBoard.build(lvl.size, lvl.pattern, 0);
+  resetPlayerBoard(lvl.size, 0.3);
+  state.phase = 'playing';
+  layout();
+  startTimer();
+  sr(`Nível ${idx + 1} de ${LEVELS.length}. Grid ${lvl.size} por ${lvl.size}.`);
+}
+
+function resetPlayerBoard(size, delay = 0) {
+  state.playerTiles = Array(size * size).fill(T.W);
+  state.cursor = 0;
+  playerBoard.build(size, state.playerTiles, delay);
+}
+
+function nextLevel() {
+  if (state.level + 1 >= LEVELS.length) { endGame(); return; }
+  loadLevel(state.level + 1);
+}
+
+/* ── Interação ── */
+function cycleTile(idx) {
+  if (state.phase !== 'playing') return;
+  const next = CYCLE[(CYCLE.indexOf(state.playerTiles[idx]) + 1) % CYCLE.length];
+  state.playerTiles[idx] = next;
+  playerBoard.setType(idx, next);
+  sr(`Cubo ${idx + 1}: ${TILE_NAMES[next]}`);
+}
+
+function checkAnswer() {
+  if (state.phase !== 'playing') return;
+  state.phase = 'feedback';
+  const lvl = LEVELS[state.level];
+  const t = now();
+  const timeLeft = Math.max(0, lvl.time - Math.max(0, t - state.startAt));
+  state.timeTaken.push(Math.round(lvl.time - timeLeft));
+
+  const correct = lvl.pattern.every((p, i) => p === state.playerTiles[i]);
+  state.history.push({ size: lvl.size, pattern: [...lvl.pattern], player: [...state.playerTiles], correct });
+
+  if (correct) {
+    const points = 100 + Math.max(0, Math.round((timeLeft / lvl.time) * 50));
+    state.score += points; state.totalCorrect++;
+    $('score-display').textContent = state.score;
+    setFeedback(`✅ Correto! +${points} pts`, 'ok');
+    sr(`Correto! Mais ${points} pontos.`);
+    playerBoard.tiles.forEach((tile, i) => { tile.userData.waveAt = t + i * 0.07; });
+    burstConfetti(playerBoard.root.position.clone());
+    setTimeout(() => nextLevel(), 1100);
+  } else {
+    state.lives--; state.totalWrong++;
+    $('lives-display').textContent = state.lives;
+    state.shakeAt = t;
+    if (state.lives <= 0) {
+      setFeedback('❌ Fim de jogo', 'fail');
+      sr('Resposta errada. Fim de jogo.');
+      setTimeout(endGame, 1000);
+    } else {
+      setFeedback('❌ Não está certo. Tente de novo!', 'fail');
+      sr('Resposta errada. Tente de novo.');
+      setTimeout(() => {
+        resetPlayerBoard(lvl.size, 0);
+        state.phase = 'playing';
+        startTimer();
+      }, 700);
+    }
+  }
+}
+
+/* ── Picking com raycaster ── */
+const raycaster = new THREE.Raycaster();
+const ndc = new THREE.Vector2();
+let hovered = -1;
+
+function pickTile(clientX, clientY) {
+  if (state.phase !== 'playing') return -1;
+  const rect = canvas.getBoundingClientRect();
+  ndc.set(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
+  raycaster.setFromCamera(ndc, camera);
+  const hit = raycaster.intersectObjects(playerBoard.tiles, true)[0];
+  if (!hit) return -1;
+  let o = hit.object;
+  while (o && o.userData.index === undefined) o = o.parent;
+  return o ? o.userData.index : -1;
+}
+
+function setHover(i) {
+  if (i === hovered) return;
+  if (playerBoard.tiles[hovered]) playerBoard.tiles[hovered].userData.hovTarget = 0;
+  hovered = i;
+  if (playerBoard.tiles[i]) playerBoard.tiles[i].userData.hovTarget = 1;
+  canvas.style.cursor = i >= 0 ? 'pointer' : 'default';
+}
+
+canvas.addEventListener('pointermove', e => { if (e.pointerType !== 'touch') setHover(pickTile(e.clientX, e.clientY)); });
+canvas.addEventListener('pointerleave', () => setHover(-1));
+canvas.addEventListener('click', e => {
+  const i = pickTile(e.clientX, e.clientY);
+  if (i < 0) return;
+  state.kbd = false;
+  state.cursor = i;
+  cycleTile(i);
+});
+
+window.addEventListener('keydown', e => {
+  if (state.phase !== 'playing' || e.target.tagName === 'BUTTON') return;
+  const n = state.size;
+  let c = state.cursor;
+  const r = Math.floor(c / n), col = c % n;
+  switch (e.key) {
+    case 'ArrowLeft':  c = r * n + Math.max(0, col - 1); break;
+    case 'ArrowRight': c = r * n + Math.min(n - 1, col + 1); break;
+    case 'ArrowUp':    c = Math.max(0, r - 1) * n + col; break;
+    case 'ArrowDown':  c = Math.min(n - 1, r + 1) * n + col; break;
+    case ' ': case 'Enter':
+      e.preventDefault(); state.kbd = true; cycleTile(c); return;
+    case 'c': case 'C':
+      checkAnswer(); return;
+    default: return;
+  }
+  e.preventDefault();
+  state.kbd = true;
+  state.cursor = c;
+  sr(`Cubo ${c + 1}: ${TILE_NAMES[state.playerTiles[c]]}`);
+});
+
+/* ── Telas ── */
+function renderStartBest() {
+  const el = $('start-best'), best = loadBest();
+  el.hidden = best <= 0;
+  el.textContent = `🏅 Recorde: ${best} pts`;
+}
+
+function startShowcase() {
+  state.phase = 'idle';
+  const types = generatePattern(3, CYCLE, 'random');
+  playerBoard.build(3, types, 0);
+  state.showcaseNext = now() + 1.4;
+  layout();
+}
+
+function startGame() {
+  LEVELS = generateLevels();
+  state = freshState();
+  $('score-display').textContent = '0';
+  $('lives-display').textContent = '3';
+  $('screen-start').hidden = true;
+  $('screen-end').hidden = true;
+  $('hud').hidden = false;
+  loadLevel(0);
+  $('check-btn').focus({ preventScroll: true });
+}
+
+function endGame() {
+  $('hud').hidden = true;
+  $('screen-end').hidden = false;
+  $('end-score').textContent = state.score;
+  $('end-correct').textContent = state.totalCorrect;
+  $('end-wrong').textContent = state.totalWrong;
+  const avg = state.timeTaken.length ? Math.round(state.timeTaken.reduce((a, b) => a + b, 0) / state.timeTaken.length) : 0;
+  $('end-time').textContent = avg + 's';
+
+  const prev = loadBest(), bestEl = $('end-best');
+  if (state.score > prev) {
+    saveBest(state.score);
+    bestEl.textContent = prev > 0 ? '🎉 Novo recorde!' : '🏅 Primeiro recorde registrado!';
+    bestEl.className = 'best-line record';
+  } else {
+    bestEl.textContent = `🏅 Recorde: ${prev} pts`;
+    bestEl.className = 'best-line';
+  }
+
+  const allCorrect = state.totalWrong === 0;
+  $('end-emoji').textContent = allCorrect ? '🏆' : state.totalCorrect > state.totalWrong ? '🎉' : '💪';
+  $('end-title').textContent = allCorrect ? 'Perfeito!' : state.totalCorrect >= 5 ? 'Muito bem!' : 'Continue treinando!';
+  buildReview();
+  startShowcase();
+  $('restart-btn').focus({ preventScroll: true });
+}
+
+function miniGrid(pattern, size, ts) {
+  const g = document.createElement('div');
+  g.className = 'mini-grid';
+  g.style.gridTemplateColumns = `repeat(${size}, ${ts}px)`;
+  pattern.forEach(type => {
+    const t = document.createElement('div');
+    t.className = 'mini-tile ' + type;
+    t.style.width = t.style.height = ts + 'px';
+    g.appendChild(t);
+  });
+  return g;
+}
+
+function buildReview() {
+  const list = $('review-list');
+  list.innerHTML = '';
+  state.history.forEach(hh => {
+    const ts = hh.size === 2 ? 22 : 16;
+    const row = document.createElement('div');
+    row.className = 'review-item';
+    const arrow = document.createElement('span');
+    arrow.className = 'review-arrow'; arrow.textContent = '→';
+    const badge = document.createElement('span');
+    badge.textContent = hh.correct ? '✅' : '❌';
+    badge.setAttribute('aria-label', hh.correct ? 'Correto' : 'Errado');
+    row.append(miniGrid(hh.pattern, hh.size, ts), arrow, miniGrid(hh.player, hh.size, ts), badge);
+    list.appendChild(row);
+  });
+}
+
+function showStart() {
+  $('screen-end').hidden = true;
+  $('screen-start').hidden = false;
+  renderStartBest();
+  $('start-btn').focus({ preventScroll: true });
+}
+
+$('start-btn').addEventListener('click', startGame);
+$('check-btn').addEventListener('click', checkAnswer);
+$('restart-btn').addEventListener('click', showStart);
+
+/* ── Loop de animação ── */
+function animateTile(tile, t, dt) {
+  const u = tile.userData;
+  const dp = (t - u.dropAt) / 0.7;
+  if (dp < 0) { tile.visible = false; return; }
+  tile.visible = true;
+  let y = 0, ry = 0;
+  if (dp < 1) y += (1 - easeOutBounce(dp)) * 4;
+  if (u.spinAt !== null) {
+    const p = (t - u.spinAt) / 0.45;
+    if (p < 1) { ry = easeInOutCubic(p) * Math.PI * 2; y += Math.sin(Math.PI * p) * 0.35; }
+    else u.spinAt = null;
+  }
+  if (u.waveAt !== null) {
+    const p = (t - u.waveAt) / 0.55;
+    if (p >= 0 && p < 1) y += Math.sin(Math.PI * p) * 0.5;
+    else if (p >= 1) u.waveAt = null;
+  }
+  u.hov += (u.hovTarget - u.hov) * Math.min(1, dt * 12);
+  y += u.hov * 0.14;
+  tile.position.y = y;
+  tile.rotation.y = ry;
+  tile.scale.setScalar(1 + u.hov * 0.05);
+}
+
+let last = now();
+function frame() {
+  const t = now();
+  const dt = Math.min(0.05, t - last);
+  last = t;
+
+  // timer
+  if (state.phase === 'playing') {
+    const lvl = LEVELS[state.level];
+    state.timeLeft = Math.max(0, lvl.time - Math.max(0, t - state.startAt));
+    updateTimerUI(state.timeLeft, lvl.time);
+    if (state.timeLeft <= 0) timeOut();
+  }
+
+  // vitrine na tela inicial/final
+  if (state.phase === 'idle' && t > state.showcaseNext) {
+    const i = Math.floor(Math.random() * playerBoard.tiles.length);
+    playerBoard.setType(i, CYCLE[(CYCLE.indexOf(playerBoard.types[i]) + 1) % CYCLE.length]);
+    state.showcaseNext = t + 0.9;
+  }
+
+  // tabuleiros
+  const shaking = !REDUCED && t - state.shakeAt < 0.45;
+  for (const b of [modelBoard, playerBoard]) {
+    b.pos.lerp(b.target, Math.min(1, dt * 7));
+    b.root.position.copy(b.pos);
+    if (b === playerBoard && shaking) b.root.position.x += Math.sin((t - state.shakeAt) * 55) * 0.14 * (1 - (t - state.shakeAt) / 0.45);
+    for (const tile of b.tiles) animateTile(tile, t, dt);
+  }
+  // giro lento na vitrine; volta suave ao normal no jogo
+  if (state.phase === 'idle') {
+    if (!REDUCED) playerBoard.root.rotation.y += dt * 0.35;
+  } else {
+    let r = playerBoard.root.rotation.y;
+    r = ((r + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
+    playerBoard.root.rotation.y = r * (1 - Math.min(1, dt * 6));
+  }
+
+  // anel de foco do teclado
+  const showRing = state.kbd && state.phase === 'playing' && playerBoard.tiles[state.cursor];
+  playerBoard.ring.visible = !!showRing;
+  if (showRing) {
+    const tl = playerBoard.tiles[state.cursor];
+    playerBoard.ring.position.x = tl.position.x;
+    playerBoard.ring.position.z = tl.position.z;
+  }
+
+  // câmera suave + paralaxe do mouse
+  cam.look.lerp(cam.lookTarget, Math.min(1, dt * 5));
+  cam.dist += (cam.distTarget - cam.dist) * Math.min(1, dt * 5);
+  const px = REDUCED ? 0 : mouse.x * 0.7, pz = REDUCED ? 0 : mouse.y * 0.25;
+  camera.position.copy(cam.look).addScaledVector(camDir, cam.dist);
+  camera.position.x += px;
+  camera.position.z += pz;
+  camera.lookAt(cam.look);
+
+  dust.rotation.y += dt * 0.02;
+  updateConfetti(dt);
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+
+/* ── Início ── */
+document.fonts && document.fonts.load("800 42px Nunito").then(() => {
+  modelBoard.drawLabel(); playerBoard.drawLabel();
+});
+renderStartBest();
+resize();
+startShowcase();
+cam.look.copy(cam.lookTarget);
+cam.dist = cam.distTarget;
+$('start-btn').focus({ preventScroll: true });
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

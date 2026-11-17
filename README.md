@@ -16,7 +16,8 @@ Abra `index.html` no navegador. O projeto também é publicado via GitHub Pages.
 
 ## Estrutura
 
-- `index.html`: todo o jogo (estilos, marcação e lógica).
+- `index.html`: versão clássica 2D (estilos, marcação e lógica).
+- `3d.html`: versão 3D com three.js (carregado via CDN, versão 0.160.0).
 - `CHANGELOG.md`: histórico de versões.
 
 ## Versionamento
