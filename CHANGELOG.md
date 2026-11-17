@@ -5,6 +5,8 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/);
 versionamento conforme [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
+
+## [0.3.0] - 2026-11-17
 ### Adicionado
 - Versão 3D (`3d.html`) com three.js e cubos físicos de 6 faces (2 brancas, 2 azuis, 2 diagonais): pegue os cubos na bandeja, arraste até o tabuleiro e vire-os até a face certa. Tabuleiros com sombras, câmera com paralaxe, confete ao acertar e tremor ao errar. Mantém as regras, o recorde e o controle por teclado.
 
